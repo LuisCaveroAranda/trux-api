@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Editar Categoría{% endblock %}
+{% block page_title %}<strong>Editar categoría — {{ categoria.nombre }}</strong>{% endblock %}
+
+{% block content %}
+<div class="row g-3" style="max-width:700px;">
+
+    <!-- Nombre de la categoría -->
+    <div class="col-12">
+        <div class="card p-3">
+            <div class="fw-bold mb-2" style="font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:#6c757d;">Nombre de categoría</div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="input-group">
+                    <input type="text" name="nombre" class="form-control" value="{{ categoria.nombre }}" required>
+                    <button type="submit" class="btn btn-primary" data-confirm="Guardar los cambios de la categoria?">Guardar</button>
+                    <a href="{% url 'categorias' %}" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Subcategorías existentes -->
+    <div class="col-12">
+        <div class="card p-3">
+            <div class="fw-bold mb-3" style="font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:#6c757d;">Subcategorías</div>
+
+            {% if categoria.subcategorias.all %}
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                {% for sub in categoria.subcategorias.all %}
+                <span class="badge bg-light text-dark border d-flex align-items-center gap-2" style="font-size:.85rem;padding:.4rem .7rem;">
+                    {{ sub.nombre }}
+                    <form method="post" action="{% url 'eliminar_subcategoria' sub.id %}" style="display:inline;" onsubmit="return confirm('¿Eliminar «{{ sub.nombre }}»?')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-close" style="font-size:.55rem;" aria-label="Eliminar"></button>
+                    </form>
+                </span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted small">Sin subcategorías aún.</p>
+            {% endif %}
+
+            <!-- Agregar subcategoría -->
+            <form method="post" action="{% url 'crear_subcategoria' %}">
+                {% csrf_token %}
+                <input type="hidden" name="categoria" value="{{ categoria.id }}">
+                <div class="input-group">
+                    <input type="text" name="nombre" class="form-control" placeholder="Nueva subcategoría..." required>
+                    <button class="btn btn-outline-primary" type="submit"><i class="bi bi-plus"></i> Agregar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

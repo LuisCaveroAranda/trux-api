@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% block title %}{% if transferencia %}Editar {{ transferencia.numero }}{% else %}Nueva Transferencia{% endif %}{% endblock %}
+{% block page_title %}<strong>{% if transferencia %}Editar {{ transferencia.numero }}{% else %}Nueva Transferencia de Stock{% endif %}</strong>{% endblock %}
+
+{% block content %}
+<form method="post" id="form-transferencia">
+{% csrf_token %}
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card p-3 mb-3">
+            <h6 class="fw-bold mb-3">Datos</h6>
+            <div class="row g-2">
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Almacén origen <span class="text-danger">*</span></label>
+                    <select name="almacen_origen" class="form-select" required id="almacen-origen">
+                        <option value="">— Seleccionar —</option>
+                        {% for a in almacenes %}
+                        <option value="{{ a.id }}" {% if transferencia and transferencia.almacen_origen_id == a.id %}selected{% endif %}>{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Almacén destino <span class="text-danger">*</span></label>
+                    <select name="almacen_destino" class="form-select" required id="almacen-destino">
+                        <option value="">— Seleccionar —</option>
+                        {% for a in almacenes %}
+                        <option value="{{ a.id }}" {% if transferencia and transferencia.almacen_destino_id == a.id %}selected{% endif %}>{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Fecha <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_transferencia" class="form-control" required
+                           value="{{ transferencia.fecha_transferencia|date:'Y-m-d'|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Motivo</label>
+                    <input type="text" name="motivo" class="form-control" placeholder="Opcional" value="{{ transferencia.motivo|default:'' }}">
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">Productos</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add">
+                    <i class="bi bi-plus"></i> Agregar producto
+                </button>
+            </div>
+            <div id="items-container"></div>
+
+            <!-- Fila template -->
+            <template id="fila-template">
+                <div class="item-row bg-light rounded p-2 mb-2">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-semibold">Producto</label>
+                            <select class="form-select form-select-sm sel-producto">
+                                <option value="">— Seleccionar —</option>
+                                {% for p in productos %}
+                                <option value="{{ p.id }}">{{ p.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Presentación</label>
+                            <select name="presentacion_id" class="form-select form-select-sm sel-presentacion" required disabled>
+                                <option value="">— primero elige producto —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Cantidad</label>
+                            <input type="number" name="cantidad" class="form-control form-control-sm" min="1" required>
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-remove"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="stock-info text-muted small mt-1"></div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card p-3" style="position:sticky;top:1rem;">
+            <h6 class="fw-bold mb-3">Resumen</h6>
+            <div id="resumen-items" class="text-muted small">Sin productos agregados.</div>
+            <div class="mt-3 d-grid gap-2">
+                <button type="submit" class="btn btn-primary" id="btn-guardar" data-confirm="Guardar la transferencia?">
+                    <i class="bi bi-check me-1"></i>Guardar transferencia
+                </button>
+                <a href="{% url 'compras:lista_transferencias' %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </div>
+    </div>
+</div>
+</form>
+
+<script>
+const URL_PRESENTACIONES = "{% url 'compras:presentaciones_ajax' %}";
+const URL_PRODUCTOS_ALMACEN = "{% url 'compras:productos_por_almacen' %}";
+
+let productosDisponibles = [];
+
+document.getElementById('almacen-origen').addEventListener('change', async function() {
+    const almacenId = this.value;
+    productosDisponibles = [];
+    document.getElementById('items-container').innerHTML = '';
+    if (!almacenId) return;
+    const r = await fetch(`${URL_PRODUCTOS_ALMACEN}?almacen_id=${almacenId}`);
+    const data = await r.json();
+    productosDisponibles = data.productos;
+    agregarFila();
+});
+
+document.getElementById('btn-add').addEventListener('click', function() {
+    if (!document.getElementById('almacen-origen').value) {
+        alert('Primero selecciona el almacén origen.');
+        return;
+    }
+    agregarFila();
+});
+
+function agregarFila() {
+    const template = document.getElementById('fila-template');
+    const clone = template.content.cloneNode(true);
+    const row = clone.querySelector('.item-row');
+    const selProd = row.querySelector('.sel-producto');
+
+    selProd.innerHTML = '<option value="">— Seleccionar —</option>';
+    productosDisponibles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.nombre;
+        selProd.appendChild(opt);
+    });
+
+    selProd.addEventListener('change', function() {
+        cargarPresentaciones(this, row);
+    });
+    row.querySelector('.btn-remove').addEventListener('click', function() {
+        row.remove();
+        actualizarResumen();
+    });
+
+    document.getElementById('items-container').appendChild(clone);
+}
+
+async function cargarPresentaciones(selectProducto, row) {
+    const prodId = selectProducto.value;
+    const selPres = row.querySelector('.sel-presentacion');
+    const stockInfo = row.querySelector('.stock-info');
+    const almacenOrigen = document.getElementById('almacen-origen').value;
+
+    selPres.innerHTML = '<option value="">— Seleccionar —</option>';
+    selPres.disabled = true;
+    stockInfo.textContent = '';
+
+    if (!prodId) return;
+
+    const r = await fetch(`${URL_PRESENTACIONES}?producto_id=${prodId}&almacen_id=${almacenOrigen}`);
+    const data = await r.json();
+    data.presentaciones.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.tipo_venta} x${p.unidades_base} und` + (p.stock != null ? ` — Disp: ${p.stock}` : '');
+        opt.dataset.stock = p.stock || 0;
+        selPres.appendChild(opt);
+    });
+    selPres.disabled = false;
+
+    selPres.addEventListener('change', function() {
+        const stock = parseInt(this.options[this.selectedIndex]?.dataset.stock || 0);
+        const inputCant = row.querySelector('input[name="cantidad"]');
+        inputCant.max = stock;
+        inputCant.placeholder = `Máx: ${stock}`;
+        actualizarResumen();
+    });
+}
+
+function actualizarResumen() {
+    const rows = document.querySelectorAll('#items-container .item-row');
+    const resumen = document.getElementById('resumen-items');
+    if (rows.length === 0) {
+        resumen.textContent = 'Sin productos agregados.';
+        return;
+    }
+    let html = '';
+    rows.forEach(row => {
+        const pres = row.querySelector('.sel-presentacion');
+        const cant = row.querySelector('input[name="cantidad"]').value;
+        const presText = pres.options[pres.selectedIndex]?.text || '—';
+        if (pres.value && cant) {
+            html += `<div class="mb-1"><i class="bi bi-arrow-right text-primary me-1"></i>${presText}: <strong>${cant}</strong></div>`;
+        }
+    });
+    resumen.innerHTML = html || 'Sin productos agregados.';
+}
+
+document.getElementById('form-transferencia').addEventListener('submit', function(e) {
+    let valido = true;
+    document.querySelectorAll('#items-container .item-row').forEach(row => {
+        const selPres = row.querySelector('.sel-presentacion');
+        const inputCant = row.querySelector('input[name="cantidad"]');
+        if (!selPres.value || !inputCant.value) return;
+        const stock = parseInt(selPres.options[selPres.selectedIndex]?.dataset.stock || 0);
+        const cant = parseInt(inputCant.value);
+        if (cant > stock) {
+            inputCant.classList.add('is-invalid');
+            valido = false;
+        } else {
+            inputCant.classList.remove('is-invalid');
+        }
+    });
+    if (!valido) {
+        e.preventDefault();
+        alert('La cantidad ingresada supera el stock disponible en uno o más productos.');
+        return;
+    }
+    document.getElementById('btn-guardar').disabled = true;
+});
+
+// Items existentes (modo edición)
+const itemsExistentes = [
+    {% if items_edicion %}
+    {% for item in items_edicion %}
+    { presentacion_id: {{ item.presentacion_id }}, producto_id: {{ item.producto_id }}, cantidad: {{ item.cantidad }} },
+    {% endfor %}
+    {% endif %}
+];
+
+async function inicializar() {
+    const almacenId = document.getElementById('almacen-origen').value;
+    if (!almacenId) { agregarFila(); return; }
+    const r = await fetch(`${URL_PRODUCTOS_ALMACEN}?almacen_id=${almacenId}`);
+    const data = await r.json();
+    productosDisponibles = data.productos;
+    if (itemsExistentes.length > 0) {
+        for (const item of itemsExistentes) {
+            agregarFila();
+            const rows = document.querySelectorAll('#items-container .item-row');
+            const row = rows[rows.length - 1];
+            const selProd = row.querySelector('.sel-producto');
+            selProd.value = item.producto_id;
+            await cargarPresentaciones(selProd, row);
+            row.querySelector('.sel-presentacion').value = item.presentacion_id;
+            row.querySelector('input[name="cantidad"]').value = item.cantidad;
+            actualizarResumen();
+        }
+    } else {
+        agregarFila();
+    }
+}
+inicializar();
+</script>
+{% endblock %}

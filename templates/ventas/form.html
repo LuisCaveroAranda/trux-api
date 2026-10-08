@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+{% block title %}{% if venta %}Editar {{ venta.numero }}{% else %}Nueva Venta{% endif %}{% endblock %}
+{% block page_title %}<strong>{% if venta %}Editar {{ venta.numero }}{% else %}Nueva Venta{% endif %}</strong>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .item-row { background:#f8f9fa; border-radius:8px; padding:.75rem; margin-bottom:.5rem; }
+    #resumen { position:sticky; top:1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="post" id="form-venta">
+{% csrf_token %}
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card p-3 mb-3">
+            <h6 class="fw-bold mb-3">Datos</h6>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Tipo <span class="text-danger">*</span></label>
+                    <select name="tipo" class="form-select" required id="sel-tipo">
+                        <option value="nota" {% if venta.tipo == 'nota' %}selected{% endif %}>Nota de Pedido</option>
+                        <option value="boleta" {% if venta.tipo == 'boleta' %}selected{% endif %}>Boleta</option>
+                        <option value="factura" {% if venta.tipo == 'factura' %}selected{% endif %}>Factura</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Fecha <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha" class="form-control" value="{{ venta.fecha|date:'Y-m-d'|default:'' }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Almacén <span class="text-danger">*</span></label>
+                    <select name="almacen" class="form-select" required>
+                        {% for a in almacenes %}
+                        <option value="{{ a.id }}" {% if venta.almacen_id == a.id %}selected{% endif %}>{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Cliente</label>
+                    <select name="cliente" class="form-select" id="sel-cliente">
+                        <option value="">— Nombre libre / Clientes Varios —</option>
+                        {% for c in clientes %}
+                        <option value="{{ c.id }}" {% if venta.cliente_id == c.id %}selected{% endif %}>{{ c.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6" id="div-cliente-nombre">
+                    <label class="form-label fw-semibold">Nombre de referencia</label>
+                    <input type="text" name="cliente_nombre" class="form-control" placeholder="Ej: Juan Pérez" value="{{ venta.cliente_nombre|default:'' }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Observaciones</label>
+                    <input type="text" name="observaciones" class="form-control" value="{{ venta.observaciones|default:'' }}">
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">Productos</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add"><i class="bi bi-plus"></i> Agregar</button>
+            </div>
+            <div id="items-container">
+            {% if venta %}
+            {% for item in venta.items.all %}
+            <div class="item-row" data-pres-id="{{ item.presentacion_id }}" data-prod-id="{{ item.presentacion.producto_id }}">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Producto</label>
+                        <select class="form-select form-select-sm sel-producto">
+                            <option value="">— Seleccionar —</option>
+                            {% for p in productos %}
+                            <option value="{{ p.id }}" {% if p.id == item.presentacion.producto_id %}selected{% endif %}>{{ p.nombre }}{% if p.marca %} - {{ p.marca }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Presentación</label>
+                        <select name="item_presentacion" class="form-select form-select-sm sel-presentacion" required>
+                            {% for pres in item.presentacion.producto.presentaciones.all %}
+                            <option value="{{ pres.id }}" {% if pres.id == item.presentacion_id %}selected{% endif %}>{{ pres.tipo_venta }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-semibold">Cantidad</label>
+                        <input type="number" name="item_cantidad" class="form-control form-control-sm inp-cantidad" min="1" value="{{ item.cantidad }}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-semibold">Precio unit.</label>
+                        <input type="number" name="item_precio" class="form-control form-control-sm inp-precio" step="0.01" min="0" value="{{ item.precio_unitario }}" required>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-remove"><i class="bi bi-trash"></i></button>
+                    </div>
+                </div>
+                <div class="text-end text-muted small mt-1 subtotal-fila">Subtotal: S/ 0.00</div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card p-3" id="resumen">
+            <h6 class="fw-bold mb-3">Resumen</h6>
+            <div id="resumen-items" class="text-muted small mb-3">Sin productos.</div>
+            <div class="d-flex justify-content-between mb-1">
+                <span class="text-muted">Subtotal</span>
+                <span id="res-subtotal">S/ 0.00</span>
+            </div>
+            <div id="div-igv" class="d-flex justify-content-between mb-1" style="display:none!important">
+                <span class="text-muted small">IGV (18% inc.)</span>
+                <span id="res-igv" class="text-muted small">S/ 0.00</span>
+            </div>
+            <div class="border-top pt-2 d-flex justify-content-between fw-bold fs-5">
+                <span>Total</span>
+                <span id="res-total">S/ 0.00</span>
+            </div>
+            <div class="mt-3 d-grid gap-2">
+                <button type="submit" class="btn btn-primary" data-confirm="Guardar la venta?"><i class="bi bi-check me-1"></i>Guardar</button>
+                <a href="{% url 'ventas:lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </div>
+    </div>
+</div>
+</form>
+
+<template id="fila-template">
+    <div class="item-row">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Producto</label>
+                <select class="form-select form-select-sm sel-producto">
+                    <option value="">— Seleccionar —</option>
+                    {% for p in productos %}
+                    <option value="{{ p.id }}">{{ p.nombre }}{% if p.marca %} - {{ p.marca }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Presentación</label>
+                <select name="item_presentacion" class="form-select form-select-sm sel-presentacion" required disabled>
+                    <option value="">— elige producto —</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Cantidad</label>
+                <input type="number" name="item_cantidad" class="form-control form-control-sm inp-cantidad" min="1" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Precio unit.</label>
+                <input type="number" name="item_precio" class="form-control form-control-sm inp-precio" step="0.01" min="0" required>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove"><i class="bi bi-trash"></i></button>
+            </div>
+        </div>
+        <div class="text-end text-muted small mt-1 subtotal-fila">Subtotal: S/ 0.00</div>
+    </div>
+</template>
+
+<script>
+const URL_PRESENTACIONES = "{% url 'compras:presentaciones_ajax' %}";
+
+document.getElementById('btn-add').addEventListener('click', () => agregarFila());
+
+// Mostrar/ocultar nombre libre según cliente seleccionado
+document.getElementById('sel-cliente').addEventListener('change', function() {
+    document.getElementById('div-cliente-nombre').style.display = this.value ? 'none' : '';
+});
+if (document.getElementById('sel-cliente').value) {
+    document.getElementById('div-cliente-nombre').style.display = 'none';
+}
+
+// IGV según tipo
+document.getElementById('sel-tipo').addEventListener('change', recalcular);
+
+function agregarFila(presId, prodId, cantidad, precio) {
+    const template = document.getElementById('fila-template');
+    const clone = template.content.cloneNode(true);
+    const row = clone.querySelector('.item-row');
+
+    const selProd = row.querySelector('.sel-producto');
+    selProd.addEventListener('change', function() {
+        cargarPresentaciones(this, row, null, null);
+    });
+    row.querySelector('.btn-remove').addEventListener('click', () => { row.remove(); recalcular(); });
+    row.querySelector('.inp-cantidad').addEventListener('input', recalcular);
+    row.querySelector('.inp-precio').addEventListener('input', recalcular);
+
+    document.getElementById('items-container').appendChild(clone);
+
+    if (prodId) {
+        selProd.value = prodId;
+        cargarPresentaciones(selProd, row, presId, precio);
+        if (cantidad) row.querySelector('.inp-cantidad').value = cantidad;
+    }
+}
+
+async function cargarPresentaciones(selProd, row, presId, precio) {
+    const prodId = selProd.value;
+    const selPres = row.querySelector('.sel-presentacion');
+    selPres.innerHTML = '<option value="">— Seleccionar —</option>';
+    selPres.disabled = true;
+    if (!prodId) return;
+
+    const r = await fetch(`${URL_PRESENTACIONES}?producto_id=${prodId}`);
+    const data = await r.json();
+    data.presentaciones.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.tipo_venta;
+        opt.dataset.precio = p.precio_minorista || 0;
+        selPres.appendChild(opt);
+    });
+    selPres.disabled = false;
+
+    if (presId) selPres.value = presId;
+
+    selPres.addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        const inp = row.querySelector('.inp-precio');
+        inp.value = parseFloat(opt.dataset.precio || 0).toFixed(2);
+        recalcular();
+    });
+
+    // Auto-precio si viene de edición
+    if (precio) {
+        row.querySelector('.inp-precio').value = precio;
+    } else {
+        const opt = selPres.options[selPres.selectedIndex];
+        if (opt && opt.dataset.precio) {
+            row.querySelector('.inp-precio').value = parseFloat(opt.dataset.precio).toFixed(2);
+        }
+    }
+    recalcular();
+}
+
+function recalcular() {
+    const rows = document.querySelectorAll('#items-container .item-row');
+    let subtotal = 0;
+    let html = '';
+    rows.forEach(row => {
+        const pres = row.querySelector('.sel-presentacion');
+        const cant = parseFloat(row.querySelector('.inp-cantidad').value) || 0;
+        const precio = parseFloat(row.querySelector('.inp-precio').value) || 0;
+        const sub = cant * precio;
+        const subEl = row.querySelector('.subtotal-fila');
+        if (subEl) subEl.textContent = `Subtotal: S/ ${sub.toFixed(2)}`;
+        if (pres.value && cant && precio) {
+            subtotal += sub;
+            html += `<div class="mb-1">${pres.options[pres.selectedIndex].text}: ${cant} × S/ ${precio.toFixed(2)} = <strong>S/ ${sub.toFixed(2)}</strong></div>`;
+        }
+    });
+
+    const tipo = document.getElementById('sel-tipo').value;
+    const conIgv = tipo === 'boleta' || tipo === 'factura';
+    const igv = conIgv ? subtotal / 1.18 * 0.18 : 0;
+
+    document.getElementById('resumen-items').innerHTML = html || 'Sin productos.';
+    document.getElementById('res-subtotal').textContent = `S/ ${subtotal.toFixed(2)}`;
+    document.getElementById('res-igv').textContent = `S/ ${igv.toFixed(2)}`;
+    document.getElementById('res-total').textContent = `S/ ${subtotal.toFixed(2)}`;
+    document.getElementById('div-igv').style.display = conIgv ? '' : 'none';
+}
+
+// Inicializar filas existentes en edición
+document.querySelectorAll('#items-container .item-row').forEach(row => {
+    const selProd = row.querySelector('.sel-producto');
+    const selPres = row.querySelector('.sel-presentacion');
+    selProd.addEventListener('change', function() { cargarPresentaciones(this, row, null, null); });
+    row.querySelector('.btn-remove').addEventListener('click', () => { row.remove(); recalcular(); });
+    row.querySelector('.inp-cantidad').addEventListener('input', recalcular);
+    row.querySelector('.inp-precio').addEventListener('input', recalcular);
+    // Habilitar presentacion ya que viene del servidor
+    if (selPres) selPres.disabled = false;
+});
+
+recalcular();
+
+{% if not venta %}
+agregarFila();
+{% endif %}
+</script>
+{% endblock %}

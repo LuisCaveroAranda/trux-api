@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% block title %}Reporte de Ventas{% endblock %}
+{% block page_title %}<strong>Reporte de Ventas</strong>{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label small fw-semibold">Desde</label>
+            <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small fw-semibold">Hasta</label>
+            <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Cliente</label>
+            <select name="cliente" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for c in clientes %}
+                <option value="{{ c.id }}" {% if cliente_sel == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Categoria</label>
+            <select name="categoria" class="form-select form-select-sm">
+                <option value="">Todas</option>
+                {% for cat in categorias %}
+                <option value="{{ cat.id }}" {% if categoria_sel == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search me-1"></i>Filtrar</button>
+            <a href="{% url 'reportes:ventas' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x"></i></a>
+        </div>
+    </form>
+</div>
+
+<!-- Métricas -->
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Total vendido</div>
+            <div class="fw-bold fs-4 text-primary">S/ {{ resumen.total|floatformat:2|default:"0.00" }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">N° de ventas</div>
+            <div class="fw-bold fs-4">{{ resumen.num_ventas|default:0 }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Ticket promedio</div>
+            <div class="fw-bold fs-5">S/ {{ resumen.ticket_promedio|floatformat:2|default:"0.00" }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Periodo</div>
+            <div class="fw-bold small mt-1">{{ fecha_desde }} / {{ fecha_hasta }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico + Top clientes -->
+<div class="row g-3 mb-3">
+    <div class="col-md-8">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Ventas por dia</h6>
+            <canvas id="graficoDias" height="100"></canvas>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Top clientes</h6>
+            {% if por_cliente %}
+            <table class="table table-sm">
+                <thead><tr><th>Cliente</th><th class="text-center">Ventas</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                {% for c in por_cliente %}
+                <tr>
+                    <td class="small">{{ c.nombre_cli }}</td>
+                    <td class="text-center text-muted small">{{ c.ventas }}</td>
+                    <td class="text-end fw-semibold small">S/ {{ c.total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted small mb-0">Sin datos.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <!-- Top productos -->
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Productos mas vendidos</h6>
+            {% if por_producto %}
+            <table class="table table-sm">
+                <thead><tr><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                {% for p in por_producto %}
+                <tr>
+                    <td>
+                        <div class="small fw-semibold">{{ p.presentacion__producto__nombre }}</div>
+                        <small class="text-muted">{{ p.presentacion__tipo_venta }}</small>
+                    </td>
+                    <td class="text-center text-muted small">{{ p.cantidad }}</td>
+                    <td class="text-end fw-semibold small">S/ {{ p.total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted small mb-0">Sin datos.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Por mes histórico -->
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Historico mensual</h6>
+            {% if por_mes %}
+            <table class="table table-sm">
+                <thead><tr><th>Mes</th><th class="text-center">Ventas</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                {% for m in por_mes %}
+                <tr>
+                    <td class="small">{{ m.mes_grupo|date:"F Y" }}</td>
+                    <td class="text-center text-muted small">{{ m.ventas }}</td>
+                    <td class="text-end fw-semibold small">S/ {{ m.total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted small mb-0">Sin datos.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Detalle ventas -->
+<div class="card p-3">
+    <h6 class="fw-bold mb-3">Detalle de ventas <small class="text-muted fw-normal">(max. 100)</small></h6>
+    {% if ventas %}
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>N°</th><th>Fecha</th><th>Tipo</th><th>Cliente</th>
+                    <th>Almacen</th><th class="text-end">Total</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for v in ventas %}
+            <tr>
+                <td><a href="{% url 'ventas:detalle' v.id %}">{{ v.numero }}</a></td>
+                <td class="text-muted small">{{ v.fecha|date:"d/m/Y" }}</td>
+                <td><span class="badge bg-light text-dark border">{{ v.get_tipo_display }}</span></td>
+                <td class="small">{{ v.get_cliente_display }}</td>
+                <td class="small">{{ v.almacen.nombre }}</td>
+                <td class="text-end fw-semibold">S/ {{ v.total|floatformat:2 }}</td>
+                <td><a href="{% url 'ventas:detalle' v.id %}" class="btn btn-sm btn-outline-secondary py-0"><i class="bi bi-eye"></i></a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">No hay ventas confirmadas para este periodo.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+var ctx = document.getElementById('graficoDias').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ chart_labels|safe }},
+        datasets: [{
+            label: 'Total S/',
+            data: {{ chart_totales|safe }},
+            backgroundColor: 'rgba(233,69,96,0.7)',
+            borderColor: '#e94560',
+            borderWidth: 1,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { callback: v => 'S/ ' + v } }
+        }
+    }
+});
+</script>
+{% endblock %}

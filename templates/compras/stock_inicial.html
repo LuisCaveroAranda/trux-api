@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block title %}Stock Inicial{% endblock %}
+{% block page_title %}<strong>Carga de Stock Inicial</strong>{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-md-5">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Registrar stock inicial</h6>
+            <form method="post" id="form-stock">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Producto <span class="text-danger">*</span></label>
+                    <select id="sel-producto" class="form-select" required>
+                        <option value="">— Seleccionar —</option>
+                        {% for p in productos %}
+                        <option value="{{ p.id }}">{{ p.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Presentación <span class="text-danger">*</span></label>
+                    <select name="presentacion" id="sel-presentacion" class="form-select" required disabled>
+                        <option value="">— Primero elige producto —</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Almacén <span class="text-danger">*</span></label>
+                    <select name="almacen" class="form-select" required>
+                        {% for a in almacenes %}
+                        <option value="{{ a.id }}">{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Cantidad <span class="text-danger">*</span></label>
+                    <input type="number" name="cantidad" id="inp-cantidad" class="form-control" min="1" required>
+                    <div class="form-text text-muted" id="txt-unidades"></div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Costo aprox. por presentación (S/)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">S/</span>
+                        <input type="number" name="costo_aproximado" class="form-control" step="0.0001" min="0" value="0">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-semibold">Proveedor</label>
+                    <select name="proveedor" class="form-select">
+                        <option value="">— Opcional —</option>
+                        {% for p in proveedores %}
+                        <option value="{{ p.id }}">{{ p.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Fecha <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check me-1"></i>Aplicar stock inicial</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Últimos registros</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead><tr><th>Producto</th><th>Presentación</th><th>Almacén</th><th>Cantidad</th><th>Proveedor</th><th>Fecha</th></tr></thead>
+                    <tbody>
+                    {% for r in registros %}
+                    <tr>
+                        <td class="small fw-semibold">{{ r.presentacion.producto.nombre }}</td>
+                        <td class="text-muted small">{{ r.presentacion.tipo_venta }}</td>
+                        <td class="text-muted small">{{ r.almacen.nombre }}</td>
+                        <td class="fw-semibold">{{ r.cantidad }}</td>
+                        <td class="text-muted small">{{ r.proveedor.nombre|default:"—" }}</td>
+                        <td class="text-muted small">{{ r.fecha|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-3">Sin registros aún.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const URL_PRES = "{% url 'compras:presentaciones_ajax' %}";
+
+document.getElementById('sel-producto').addEventListener('change', async function() {
+    const prodId = this.value;
+    const sel = document.getElementById('sel-presentacion');
+    sel.innerHTML = '<option value="">— Seleccionar —</option>';
+    sel.disabled = true;
+    document.getElementById('txt-unidades').textContent = '';
+    if (!prodId) return;
+    const r = await fetch(`${URL_PRES}?producto_id=${prodId}`);
+    const data = await r.json();
+    data.presentaciones.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.tipo_venta} (x${p.unidades_base} und)`;
+        opt.dataset.ub = p.unidades_base;
+        sel.appendChild(opt);
+    });
+    sel.disabled = false;
+});
+
+document.getElementById('sel-presentacion').addEventListener('change', function() {
+    actualizarTexto();
+});
+document.getElementById('inp-cantidad').addEventListener('input', function() {
+    actualizarTexto();
+});
+
+function actualizarTexto() {
+    const sel = document.getElementById('sel-presentacion');
+    const cant = parseInt(document.getElementById('inp-cantidad').value) || 0;
+    const ub = parseInt(sel.options[sel.selectedIndex]?.dataset.ub || 0);
+    const txt = document.getElementById('txt-unidades');
+    if (ub && cant) {
+        txt.textContent = `= ${cant * ub} unidades base en inventario`;
+    } else {
+        txt.textContent = '';
+    }
+}
+</script>
+{% endblock %}

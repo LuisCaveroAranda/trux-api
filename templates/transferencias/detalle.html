@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}{{ transferencia.numero }}{% endblock %}
+{% block page_title %}
+<strong>{{ transferencia.numero }}</strong>
+<span class="badge {% if transferencia.estado == 'confirmada' %}bg-success{% elif transferencia.estado == 'borrador' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-2">
+    {{ transferencia.get_estado_display }}
+</span>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex gap-2 mb-3">
+    {% if transferencia.estado == 'borrador' %}
+    <a href="{% url 'compras:editar_transferencia' transferencia.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+    <form method="post" action="{% url 'compras:confirmar_transferencia' transferencia.id %}"
+          onsubmit="return confirm('¿Confirmar transferencia? Esto moverá el stock y no se puede deshacer.')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-circle me-1"></i>Confirmar y mover stock</button>
+    </form>
+    {% endif %}
+    {% if transferencia.estado == 'confirmada' %}
+    <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalAnular">
+        <i class="bi bi-x-circle me-1"></i>Anular
+    </button>
+    {% endif %}
+    <a href="{% url 'compras:lista_transferencias' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card p-3 mb-3">
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Almacén origen</small>
+                    <strong>{{ transferencia.almacen_origen.nombre }}</strong>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Almacén destino</small>
+                    <strong>{{ transferencia.almacen_destino.nombre }}</strong>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Fecha</small>
+                    <strong>{{ transferencia.fecha_transferencia|date:"d/m/Y"|default:"—" }}</strong>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Registrado por</small>
+                    <strong>{{ transferencia.usuario.get_full_name|default:transferencia.usuario.username }}</strong>
+                </div>
+                {% if transferencia.motivo %}
+                <div class="col-12">
+                    <small class="text-muted d-block">Motivo</small>
+                    <span>{{ transferencia.motivo }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Productos transferidos</h6>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Presentación</th>
+                        <th class="text-end">Cantidad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in items_display %}
+                <tr>
+                    <td class="fw-semibold">{{ row.item.presentacion.producto.nombre }}</td>
+                    <td class="text-muted small">{{ row.item.presentacion.tipo_venta }}</td>
+                    <td class="text-end">
+                        <strong>{{ row.cant_presentacion }}</strong>
+                        <span class="text-muted small">({{ row.cant_base }} und)</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="text-muted text-center">Sin ítems.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if transferencia.estado == 'confirmada' %}
+<div class="modal fade" id="modalAnular" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Anular {{ transferencia.numero }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Esto revertirá los siguientes cambios:</p>
+                <ul class="list-unstyled">
+                {% for row in items_display %}
+                <li class="mb-1"><i class="bi bi-box-seam text-warning me-2"></i>
+                    Se devolverán <strong>{{ row.cant_base }}</strong> und de
+                    <strong>{{ row.item.presentacion.producto.nombre }}</strong>
+                    de <strong>{{ transferencia.almacen_destino.nombre }}</strong> a <strong>{{ transferencia.almacen_origen.nombre }}</strong>
+                </li>
+                {% endfor %}
+                </ul>
+                <ul class="list-unstyled mt-2">
+                    <li><i class="bi bi-arrow-counterclockwise text-warning me-2"></i>Se registrará una entrada de anulación en el kardex</li>
+                </ul>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" action="{% url 'compras:anular_transferencia' transferencia.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i>Sí, anular</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

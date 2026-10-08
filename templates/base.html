@@ -1,0 +1,266 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TRUX{% endblock %} — Fuegos Artificiales TRUX</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-size: 0.9rem; }
+        .sidebar { min-height: 100vh; background: #1a1a2e; width: 220px; position: fixed; top: 0; left: 0; z-index: 100; transition: left .25s ease; overflow-y: auto; }
+        .sidebar.collapsed { left: -220px; }
+        .sidebar .brand { color: #e94560; font-weight: 700; font-size: 1.3rem; padding: 1.2rem 1rem; border-bottom: 1px solid #2d2d4e; }
+        .sidebar .nav-link { color: #adb5bd; padding: .5rem 1rem; border-radius: 6px; margin: 2px 8px; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #e94560; color: #fff; }
+        .sidebar .nav-section { color: #6c757d; font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; padding: .8rem 1rem .3rem; }
+        .main-content { margin-left: 220px; padding: 1.5rem; transition: margin-left .25s ease; }
+        .main-content.expanded { margin-left: 0; }
+        .btn-toggle-sidebar { background: none; border: none; color: #333; font-size: 1.2rem; cursor: pointer; padding: 0 .5rem; }
+        .topbar { background: #fff; border-bottom: 1px solid #dee2e6; padding: .6rem 1.5rem; margin: -1.5rem -1.5rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .badge-rol { font-size: .7rem; }
+        .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        .btn-primary { background: #e94560; border-color: #e94560; }
+        .btn-primary:hover { background: #c73652; border-color: #c73652; }
+        .table thead th { background: #f1f3f5; font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; }
+        .estado-activo { color: #198754; }
+        .estado-inactivo { color: #6c757d; }
+        .estado-incompleto { color: #fd7e14; }
+        .stock-ok { color: #198754; font-weight: 600; }
+        .stock-alerta { color: #fd7e14; font-weight: 600; }
+        .stock-sinstock { color: #dc3545; font-weight: 600; }
+        /* Overlay para cerrar sidebar en móvil */
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99; }
+        .sidebar-overlay.visible { display: block; }
+        .btn-cerrar-sidebar { display: none; }
+        @media (max-width: 768px) {
+            .sidebar { left: -75vw; width: 75vw; max-width: 260px; z-index: 200; height: 100vh; overflow-y: auto; }
+            .sidebar.open { left: 0; }
+            .main-content { margin-left: 0 !important; }
+            .main-content.expanded { margin-left: 0; }
+            .btn-cerrar-sidebar {
+                display: flex; align-items: center; justify-content: flex-end;
+                padding: .6rem .8rem .2rem; cursor: pointer;
+                background: none; border: none; color: #adb5bd; font-size: 1.4rem;
+                width: 100%;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar d-flex flex-column">
+    <button class="btn-cerrar-sidebar" id="btnCerrarSidebar"><i class="bi bi-x-lg"></i></button>
+    <div class="brand" style="padding:.8rem 1rem;">
+        <img src="{% static 'img/logo.png' %}" alt="TRUX" style="height:48px;object-fit:contain;max-width:100%;">
+    </div>
+    <nav class="flex-grow-1 py-2">
+
+        <div class="nav-section">Principal</div>
+        <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <i class="bi bi-grid me-2"></i>Dashboard
+        </a>
+
+
+        <div class="nav-section">Catálogo</div>
+        <a href="{% url 'productos:lista' %}" class="nav-link {% if 'productos' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="bi bi-box me-2"></i>Productos
+        </a>
+        <a href="{% url 'proveedores' %}" class="nav-link">
+            <i class="bi bi-truck me-2"></i>Proveedores
+        </a>
+        <a href="{% url 'categorias' %}" class="nav-link">
+            <i class="bi bi-tags me-2"></i>Categorías
+        </a>
+        <a href="{% url 'marcas' %}" class="nav-link">
+            <i class="bi bi-patch-check me-2"></i>Marcas
+        </a>
+
+        <a href="{% url 'catalogo' %}" class="nav-link {% if request.resolver_match.url_name == 'catalogo' %}active{% endif %}">
+            <i class="bi bi-grid-3x3-gap me-2"></i>Catálogo
+        </a>
+
+        <div class="nav-section">Ventas</div>
+        <a href="{% url 'ventas:lista' %}" class="nav-link {% if 'ventas' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="bi bi-cart me-2"></i>Ventas
+        </a>
+
+        <div class="nav-section">Almacén</div>
+        <a href="{% url 'compras:lista' %}" class="nav-link {% if 'compras' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="bi bi-receipt me-2"></i>Guías de Compra
+        </a>
+        <a href="{% url 'almacenes' %}" class="nav-link">
+            <i class="bi bi-building me-2"></i>Almacenes
+        </a>
+        <a href="{% url 'productos:inventario' %}" class="nav-link">
+            <i class="bi bi-archive me-2"></i>Inventario
+        </a>
+        <a href="{% url 'compras:lista_transferencias' %}" class="nav-link">
+            <i class="bi bi-arrow-left-right me-2"></i>Transferencias
+        </a>
+
+        <div class="nav-section">Reportes</div>
+        <a href="{% url 'reportes:compras' %}" class="nav-link {% if request.resolver_match.url_name == 'compras' and 'reportes' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="bi bi-bar-chart me-2"></i>Compras
+        </a>
+        <a href="{% url 'reportes:ventas' %}" class="nav-link {% if request.resolver_match.url_name == 'ventas' and 'reportes' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="bi bi-graph-up me-2"></i>Ventas
+        </a>
+        <a href="{% url 'reportes:inventario' %}" class="nav-link {% if request.resolver_match.url_name == 'inventario' and 'reportes' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="bi bi-boxes me-2"></i>Inventario
+        </a>
+        <a href="{% url 'reportes:catalogo' %}" class="nav-link {% if request.resolver_match.url_name == 'catalogo' and 'reportes' in request.resolver_match.app_name %}active{% endif %}">
+            <i class="bi bi-journal-text me-2"></i>Catalogo precios
+        </a>
+
+        {% if user.rol == 'admin' or user.rol == 'supervisor' %}
+        <div class="nav-section">Administración</div>
+        <a href="/admin/" class="nav-link">
+            <i class="bi bi-gear me-2"></i>Panel Admin
+        </a>
+        {% endif %}
+    </nav>
+    <div class="p-3 border-top" style="border-color:#2d2d4e !important;">
+        <small class="text-muted d-block">{{ user.get_full_name|default:user.username }}</small>
+        <small class="text-muted">{{ user.get_rol_display }}</small>
+    </div>
+</div>
+{% endif %}
+
+<div class="{% if user.is_authenticated %}main-content{% else %}container-fluid{% endif %}">
+    {% if user.is_authenticated %}
+    <div class="topbar">
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn-toggle-sidebar" id="btnToggleSidebar" title="Menú"><i class="bi bi-list"></i></button>
+            {% block page_title %}<span class="text-muted">Dashboard</span>{% endblock %}
+        </div>
+        <div class="d-flex align-items: center gap-3">
+            <a href="{% url 'logout' %}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-box-arrow-right"></i> Salir
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+<script>
+(function () {
+    var sidebar = document.querySelector('.sidebar');
+    var mainContent = document.querySelector('.main-content');
+    var btnToggle = document.getElementById('btnToggleSidebar');
+    var overlay = document.getElementById('sidebarOverlay');
+
+    function esMobil() { return window.innerWidth <= 768; }
+
+    // Desktop: colapsar/expandir empujando el contenido
+    var sidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    function aplicarEstadoDesktop() {
+        if (sidebarCollapsed) {
+            sidebar.classList.add('collapsed');
+            mainContent && mainContent.classList.add('expanded');
+        } else {
+            sidebar.classList.remove('collapsed');
+            mainContent && mainContent.classList.remove('expanded');
+        }
+    }
+
+    // Móvil: drawer que se desliza encima del contenido
+    function abrirMobil() {
+        sidebar.classList.add('open');
+        overlay && overlay.classList.add('visible');
+        document.body.style.overflow = 'hidden';
+    }
+    function cerrarMobil() {
+        sidebar.classList.remove('open');
+        overlay && overlay.classList.remove('visible');
+        document.body.style.overflow = '';
+    }
+
+    if (!esMobil() && sidebar && mainContent) aplicarEstadoDesktop();
+
+    if (btnToggle) {
+        btnToggle.addEventListener('click', function () {
+            if (esMobil()) {
+                sidebar.classList.contains('open') ? cerrarMobil() : abrirMobil();
+            } else {
+                sidebarCollapsed = !sidebarCollapsed;
+                localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
+                aplicarEstadoDesktop();
+            }
+        });
+    }
+
+    // Cerrar al tocar el overlay o el botón X
+    overlay && overlay.addEventListener('click', cerrarMobil);
+    var btnCerrar = document.getElementById('btnCerrarSidebar');
+    btnCerrar && btnCerrar.addEventListener('click', cerrarMobil);
+
+    // Cerrar al navegar en móvil
+    sidebar && sidebar.querySelectorAll('.nav-link').forEach(function(link) {
+        link.addEventListener('click', function() { if (esMobil()) cerrarMobil(); });
+    });
+})();
+
+(function () {
+    var formModificado = false;
+
+    // Captura cambios en inputs dinamicos tambien (event delegation)
+    document.addEventListener('input', function (e) {
+        if (e.target.closest('form:not([data-no-confirm])')) formModificado = true;
+    });
+    document.addEventListener('change', function (e) {
+        if (e.target.closest('form:not([data-no-confirm])')) formModificado = true;
+    });
+
+    // Al enviar form limpiar bandera + manejar data-confirm en el form
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (form.dataset.confirm) {
+            if (!confirm(form.dataset.confirm)) { e.preventDefault(); return; }
+        }
+        formModificado = false;
+    });
+
+    // Confirmacion data-confirm en botones
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-confirm]');
+        if (!btn || btn.tagName === 'FORM') return;
+        if (!confirm(btn.dataset.confirm || 'Estas seguro?')) e.preventDefault();
+    });
+
+    // Interceptar links con cambios sin guardar
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('a[href]');
+        if (!a) return;
+        var href = a.getAttribute('href');
+        if (!href || href === '#' || href.startsWith('javascript') || 'noConfirm' in a.dataset) return;
+        if (formModificado) {
+            if (!confirm('Tienes cambios sin guardar. Seguro que quieres salir?')) e.preventDefault();
+        }
+    });
+
+    // Al cerrar o recargar la pestaña
+    window.addEventListener('beforeunload', function (e) {
+        if (formModificado) { e.preventDefault(); e.returnValue = ''; }
+    });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Guías de Compra{% endblock %}
+{% block page_title %}<strong>Guías de Compra</strong>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+    <div class="d-flex gap-2">
+        {% for val, label in compras.model.ESTADO_CHOICES|default:'' %}{% endfor %}
+        <a href="?estado=" class="btn btn-sm {% if not request.GET.estado %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Todas</a>
+        <a href="?estado=borrador" class="btn btn-sm {% if request.GET.estado == 'borrador' %}btn-warning{% else %}btn-outline-warning{% endif %}">Borrador</a>
+        <a href="?estado=confirmada" class="btn btn-sm {% if request.GET.estado == 'confirmada' %}btn-success{% else %}btn-outline-success{% endif %}">Confirmadas</a>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'compras:stock_inicial' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box me-1"></i>Stock inicial</a>
+        <a href="{% url 'compras:crear' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus me-1"></i>Nueva guía</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Número</th><th>Tipo</th><th>Proveedor</th><th>Almacén</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead>
+            <tbody>
+            {% for c in compras %}
+            <tr>
+                <td class="fw-semibold"><a href="{% url 'compras:detalle' c.id %}">{{ c.numero }}</a></td>
+                <td class="text-muted small">{{ c.get_tipo_display }}</td>
+                <td>{{ c.proveedor.nombre|default:"—" }}</td>
+                <td class="text-muted small">{{ c.almacen.nombre }}</td>
+                <td class="text-muted small">{{ c.fecha|date:"d/m/Y" }}</td>
+                <td>
+                    <span class="badge {% if c.estado == 'confirmada' %}bg-success{% elif c.estado == 'borrador' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                        {{ c.get_estado_display }}
+                    </span>
+                </td>
+                <td class="fw-semibold">S/ {{ c.total|floatformat:2 }}</td>
+                <td>
+                    <a href="{% url 'compras:detalle' c.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>
+                    {% if c.estado == 'borrador' %}
+                    <a href="{% url 'compras:editar' c.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-center text-muted py-4">No hay guías de compra aún.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

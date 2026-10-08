@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Inventario{% endblock %}
+{% block page_title %}<strong>Inventario</strong>{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2">
+        <div class="col-md-4">
+            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar producto...">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i> Filtrar</button>
+            <a href="{% url 'productos:inventario' %}" class="btn btn-outline-secondary"><i class="bi bi-x"></i></a>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    {% for alm in almacenes %}
+                    <th class="text-center">{{ alm.nombre }}</th>
+                    {% endfor %}
+                    <th class="text-center">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for fila in filas %}
+            <tr>
+                <td>
+                    <a href="{% url 'productos:detalle' fila.producto.id %}" class="fw-semibold text-decoration-none">{{ fila.producto.nombre }}</a>
+                </td>
+                {% for descomp in fila.stocks_por_almacen %}
+                <td class="text-center small">
+                    {% if descomp %}
+                        {% for d in descomp %}
+                        <div class="{% if forloop.first %}fw-semibold text-success{% else %}text-muted{% endif %}">
+                            {{ d.cantidad }} {{ d.pres.tipo_venta }}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+                <td class="text-center small">
+                    {% for d in fila.descomp_total %}
+                    <div class="{% if forloop.first %}fw-bold{% else %}text-muted{% endif %}">
+                        {{ d.cantidad }} {{ d.pres.tipo_venta }}
+                    </div>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="99" class="text-center text-muted py-4">No hay registros de inventario.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

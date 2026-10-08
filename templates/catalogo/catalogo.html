@@ -1,0 +1,841 @@
+{% extends 'base.html' %}
+{% load static trux_tags %}
+{% block title %}Catálogo de Productos{% endblock %}
+{% block page_title %}<strong>Catálogo de Productos</strong>{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/fireworks.css' %}">
+<style>
+body { background: #0b0b1a !important; }
+/* Ocultar sidebar y topbar del sistema en catálogo */
+.sidebar, .topbar { display: none !important; }
+.main-content { margin-left: 0 !important; padding: 0 1rem 1rem !important; }
+
+/* Barra fija superior */
+.cat-topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: linear-gradient(135deg, #1a1a2e 0%, #c0294a 100%);
+    box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    overflow: hidden;
+}
+/* Partículas */
+.particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.spark {
+    position: absolute; border-radius: 50%;
+    animation: sparkFloat linear infinite;
+    bottom: -10px;
+}
+@keyframes sparkFloat {
+    0%   { transform: translateY(0) scale(0.4); opacity: 0; }
+    15%  { opacity: 1; }
+    85%  { opacity: .7; }
+    100% { transform: translateY(-80px) scale(1.2); opacity: 0; }
+}
+/* Hero banner */
+.cat-hero {
+    width: 100%; overflow: hidden;
+    position: relative; line-height: 0;
+    background: #0a0a1a;
+}
+.cat-hero img {
+    width: 100%; height: auto;
+    max-height: 360px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+.cat-hero::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to bottom, transparent 60%, rgba(10,10,26,.6) 100%);
+}
+@media (max-width: 768px) {
+    .cat-hero img { max-height: 220px; }
+}
+.cat-topbar-row1 {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.5rem;
+}
+.cat-brand { color: #fff; font-size: 1.1rem; font-weight: 700; white-space: nowrap; }
+.cat-brand i { opacity: .9; }
+.cat-search {
+    flex: 1; display: flex; align-items: center;
+    background: rgba(255,255,255,.15); border-radius: 8px;
+    padding: .3rem .75rem; max-width: 640px;
+}
+.cat-search:focus-within {
+    background: rgba(255,255,255,.25); box-shadow: 0 0 0 2px rgba(255,255,255,.4);
+}
+.cat-search input {
+    background: none; border: none; outline: none;
+    color: #fff; width: 100%; font-size: .88rem;
+}
+.cat-search input::placeholder { color: rgba(255,255,255,.6); }
+.cat-search i { color: rgba(255,255,255,.7); margin-right: .5rem; }
+.cat-total { background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; padding: .25rem .85rem; color: #fff; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+
+/* Tabs categorías */
+.cat-tabs {
+    display: flex; overflow-x: auto; gap: .3rem;
+    padding: .4rem 1.5rem; scrollbar-width: none;
+    border-top: 1px solid rgba(255,255,255,.1);
+}
+.cat-tabs::-webkit-scrollbar { display: none; }
+.cat-tab {
+    white-space: nowrap; padding: .3rem .9rem; border-radius: 20px;
+    color: rgba(255,255,255,.75); font-size: .8rem; text-decoration: none;
+    transition: all .15s; flex-shrink: 0; border: 1px solid rgba(255,255,255,.2);
+}
+.cat-tab:hover { background: rgba(255,255,255,.2); color: #fff; }
+.cat-tab.active { background: #fff; color: #e94560; font-weight: 600; border-color: #fff; }
+
+/* Portada en topbar (solo desktop) */
+.cat-topbar-portada {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 38%; pointer-events: none; overflow: hidden;
+}
+.cat-topbar-portada img {
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center top;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,.55) 40%, rgba(0,0,0,.85) 100%);
+    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,.55) 40%, rgba(0,0,0,.85) 100%);
+}
+@media (max-width: 768px) { .cat-topbar-portada { display: none; } }
+
+/* Contenedor fuegos artificiales pantalla completa */
+#canvas-container {
+    position: fixed !important; inset: 0 !important; z-index: 0 !important;
+    width: 100vw !important; height: 100vh !important;
+    left: 0 !important; top: 0 !important; margin: 0 !important;
+    pointer-events: none; background: transparent !important;
+}
+#canvas-container canvas {
+    width: 100% !important; height: 100% !important;
+    pointer-events: auto; cursor: crosshair;
+}
+#gui { display: none !important; }
+
+/* Tabs subcategorías */
+.sub-topbar {
+    position: fixed; z-index: 99;
+    background: #fff; border-bottom: 1px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0,0,0,.06);
+    left: 0; right: 0;
+    display: flex; overflow-x: auto; gap: .3rem;
+    padding: .5rem 1.5rem; scrollbar-width: none;
+}
+.sub-topbar::-webkit-scrollbar { display: none; }
+.sub-tab {
+    white-space: nowrap; padding: .25rem .75rem; border-radius: 20px;
+    font-size: .78rem; text-decoration: none; flex-shrink: 0;
+    border: 1px solid #dee2e6; color: #495057; transition: all .15s;
+}
+.sub-tab:hover { border-color: #e94560; color: #e94560; }
+.sub-tab.active { background: #e94560; border-color: #e94560; color: #fff; font-weight: 600; }
+
+/* Espaciador */
+.topbar-spacer { height: 116px; }
+.topbar-spacer.con-sub { height: 156px; }
+
+/* Animación entrada */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+/* Cards */
+.prod-card {
+    border: 1px solid rgba(255,255,255,.08); box-shadow: 0 2px 12px rgba(0,0,0,.3);
+    border-radius: 14px; transition: transform .2s, box-shadow .2s, border-color .2s;
+    overflow: hidden; background: #fff; height: 100%; position: relative;
+    opacity: 0; animation: fadeInUp .4s ease forwards;
+}
+.prod-card:hover { transform: translateY(-4px); box-shadow: 0 10px 28px rgba(233,69,96,.3); border-color: #e94560; }
+.prod-foto {
+    position: relative; width: 100%; padding-top: 110%;
+    background: #fff; overflow: hidden;
+}
+.prod-foto img {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: contain; padding: 8px; cursor: zoom-in; transition: transform .3s;
+}
+.prod-card:hover .prod-foto img { transform: scale(1.04); }
+.prod-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
+    background: linear-gradient(to top, rgba(10,10,20,.92) 0%, rgba(10,10,20,.6) 55%, transparent 100%);
+    padding: 1.8rem .65rem .6rem;
+}
+.prod-nombre {
+    font-size: .8rem; font-weight: 800; color: #fff; text-transform: uppercase;
+    letter-spacing: .4px; line-height: 1.2; margin-bottom: .35rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.prod-presentaciones { display: flex; flex-wrap: wrap; gap: .25rem; }
+.prod-pres-badge {
+    font-size: .62rem; font-weight: 700; color: #fff;
+    background: rgba(233,69,96,.8); border-radius: 20px;
+    padding: .1rem .45rem; white-space: nowrap; letter-spacing: .3px;
+}
+.no-foto-placeholder {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: .6rem;
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d2d4e 100%); padding: 1rem;
+}
+.no-foto-nombre {
+    color: rgba(255,255,255,.75); font-size: .82rem; font-weight: 700;
+    text-transform: uppercase; text-align: center; letter-spacing: .5px; line-height: 1.3;
+}
+.btn-cotizar {
+    position: absolute; top: .5rem; right: .5rem; z-index: 5;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,.95); border: none;
+    display: flex; align-items: center; justify-content: center;
+    color: #e94560; font-size: .9rem; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2); transition: all .2s;
+    opacity: 0; transform: scale(.8);
+}
+.prod-card:hover .btn-cotizar { opacity: 1; transform: scale(1); }
+.btn-cotizar.activo { opacity: 1 !important; transform: scale(1) !important; background: #e94560; color: #fff; }
+.btn-cotizar:hover { background: #e94560; color: #fff; transform: scale(1.12) !important; }
+.btn-cotizar.activo i::before { content: "\f633"; }
+
+/* Botón flotante cotización */
+.btn-cotizacion-flotante {
+    position: fixed; bottom: 5.2rem; right: 1.5rem; z-index: 200;
+    background: #1a1a2e; color: #fff; border-radius: 50px;
+    padding: .65rem 1.2rem; font-size: .9rem; font-weight: 600;
+    border: none; box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    display: none; align-items: center; gap: .5rem; cursor: pointer;
+}
+.btn-cotizacion-flotante .badge-count {
+    background: #e94560; border-radius: 50%; width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center; font-size: .75rem;
+}
+@media (max-width: 768px) {
+    .btn-cotizacion-flotante { bottom: 4.6rem; right: 1.5rem; padding: .6rem; }
+    .btn-cotizacion-flotante span.texto { display: none; }
+}
+
+/* Categoría activa label */
+.cat-activa { font-size: .8rem; color: #6c757d; margin-bottom: .75rem; padding: 0 .5rem; }
+.cat-activa strong { color: #e94560; }
+
+/* Padding lateral contenido */
+.cat-content { padding: 1.2rem 1.5rem 2rem; position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; }
+
+/* Descripción */
+.prod-desc {
+    font-size: .68rem; color: rgba(255,255,255,.6);
+    margin-top: .25rem; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* Badge NUEVO */
+.badge-nuevo {
+    position: absolute; top: .5rem; left: .5rem; z-index: 6;
+    background: #ff6b35; color: #fff; font-size: .6rem; font-weight: 800;
+    padding: .15rem .45rem; border-radius: 20px; letter-spacing: .5px;
+    text-transform: uppercase; box-shadow: 0 2px 6px rgba(255,107,53,.5);
+}
+/* Botones flotantes redes sociales */
+.btns-sociales {
+    position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 200;
+    display: flex; flex-direction: column; align-items: flex-end; gap: .5rem;
+}
+.btn-social {
+    display: flex; align-items: center; gap: .5rem;
+    border-radius: 50px; padding: .6rem 1.1rem;
+    font-size: .85rem; font-weight: 600; text-decoration: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,.25); transition: transform .2s, box-shadow .2s;
+    white-space: nowrap;
+}
+.btn-social:hover { transform: translateY(-2px); }
+.btn-social span { font-size: .8rem; }
+.btn-whatsapp { background: #25d366; color: #fff; }
+.btn-whatsapp:hover { box-shadow: 0 6px 16px rgba(37,211,102,.5); color: #fff; }
+.btn-facebook { background: #1877f2; color: #fff; }
+.btn-facebook:hover { box-shadow: 0 6px 16px rgba(24,119,242,.5); color: #fff; }
+.btn-tiktok { background: #010101; color: #fff; border: 1px solid #333; }
+.btn-tiktok:hover { box-shadow: 0 6px 16px rgba(0,0,0,.4); color: #fff; }
+@media (max-width: 768px) {
+    .btn-social span { display: none; }
+    .btn-social { padding: .7rem; border-radius: 50%; }
+}
+/* Banner síguenos */
+.banner-redes {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d2d4e 100%);
+    border-radius: 16px; padding: 2rem; text-align: center;
+    margin: 2rem 0 1rem; border: 1px solid rgba(255,255,255,.08);
+}
+.banner-redes h3 { color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: .4rem; }
+.banner-redes p { color: rgba(255,255,255,.5); font-size: .83rem; margin-bottom: 1.2rem; }
+.banner-redes-btns { display: flex; justify-content: center; gap: .75rem; flex-wrap: wrap; }
+
+/* Paginación */
+.cat-paginacion { display: flex; justify-content: center; align-items: center; gap: .4rem; margin: 2rem 0; }
+.cat-paginacion .page-item .page-link {
+    border: none; border-radius: 10px !important;
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .85rem;
+    background: rgba(255,255,255,.1); color: rgba(255,255,255,.7);
+    transition: all .2s; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+.cat-paginacion .page-item .page-link:hover { background: rgba(233,69,96,.7); color: #fff; transform: translateY(-2px); }
+.cat-paginacion .page-item.active .page-link { background: #e94560; color: #fff; box-shadow: 0 4px 14px rgba(233,69,96,.5); }
+.cat-paginacion .page-item.disabled .page-link { opacity: .35; }
+
+/* Banner portada inferior */
+.cat-banner-final {
+    border-radius: 20px; overflow: hidden; margin: 1.5rem 0;
+    position: relative; box-shadow: 0 8px 32px rgba(0,0,0,.4);
+}
+.cat-banner-final img { width: 100%; height: auto; display: block; }
+.cat-banner-final-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to right, rgba(10,10,26,.5) 0%, transparent 50%, rgba(10,10,26,.5) 100%);
+}
+
+/* Botón video en tarjeta */
+.btn-video-card {
+    position: absolute; top: .5rem; left: .5rem; z-index: 5;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(233,69,96,.92); border: none;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 1rem; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(233,69,96,.5); transition: all .2s;
+    text-decoration: none;
+}
+.btn-video-card:hover { background: #e94560; transform: scale(1.12); color: #fff; }
+/* Cuando NO hay badge NUEVO, el botón de video va arriba-izquierda sin offset */
+.badge-nuevo ~ .btn-video-card, .btn-video-card.con-nuevo { top: 2rem; }
+
+/* Modal video catálogo */
+.modal-video-overlay {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,.92); align-items: center; justify-content: center;
+}
+.modal-video-overlay.abierto { display: flex; }
+.modal-video-inner {
+    position: relative; width: 90vw; max-width: 800px;
+    aspect-ratio: 16/9; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 0 60px rgba(233,69,96,.4);
+}
+.modal-video-inner iframe { width: 100%; height: 100%; border: none; }
+.btn-cerrar-video {
+    position: absolute; top: -40px; right: 0;
+    background: none; border: none; color: #fff; font-size: 1.6rem;
+    cursor: pointer; line-height: 1;
+}
+
+/* Footer */
+.cat-footer { text-align: center; padding: 1.5rem; color: rgba(255,255,255,.3); font-size: .8rem; margin-top: 1rem; }
+
+@media (max-width: 768px) {
+    .cat-topbar-row1 { padding: .5rem .75rem; gap: .5rem; }
+    .cat-brand { font-size: .95rem; }
+    .cat-brand span { display: none; }
+    .topbar-spacer { height: 120px; }
+    .topbar-spacer.con-sub { height: 160px; }
+    .cat-content { padding: 0 .75rem 2rem; }
+    .btn-whatsapp span { display: none; }
+    .btn-whatsapp { padding: .75rem; border-radius: 50%; }
+
+    /* Diseño lista en móvil */
+    .row.row-cols-2 { --bs-gutter-x: 0; --bs-gutter-y: .5rem; }
+    .row.row-cols-2 > .col { width: 100% !important; flex: 0 0 100% !important; max-width: 100% !important; }
+
+    .prod-card {
+        display: flex; flex-direction: row;
+        height: 110px !important; border-radius: 14px;
+        background: #12122a !important;
+        border: 1px solid rgba(255,255,255,.1) !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,.4) !important;
+    }
+    .prod-foto {
+        position: static !important;
+        width: 110px !important; min-width: 110px; padding-top: 0 !important;
+        height: 110px !important; flex-shrink: 0;
+        border-radius: 14px 0 0 14px; overflow: hidden;
+    }
+    .prod-foto img {
+        position: static !important; width: 110px !important; height: 110px !important;
+        object-fit: cover !important; padding: 0 !important; cursor: default !important;
+        transition: none !important;
+    }
+    .no-foto-placeholder {
+        position: static !important; width: 110px !important; height: 110px !important;
+        border-radius: 14px 0 0 14px;
+    }
+    .prod-overlay {
+        position: absolute !important;
+        left: 110px !important; right: 0 !important; top: 0 !important; bottom: 0 !important;
+        background: none !important;
+        padding: .65rem .9rem !important;
+        display: flex; flex-direction: column; justify-content: center; gap: .35rem;
+    }
+    .prod-nombre {
+        font-size: .88rem !important; color: #ffffff !important; font-weight: 800 !important;
+        -webkit-line-clamp: 2 !important; margin-bottom: 0 !important;
+        letter-spacing: .2px !important;
+    }
+    .prod-presentaciones { gap: .2rem !important; }
+    .prod-pres-badge {
+        font-size: .58rem !important; padding: .12rem .4rem !important;
+        background: rgba(233,69,96,.6) !important; border-radius: 6px !important;
+    }
+    .badge-nuevo {
+        top: .4rem !important; left: .4rem !important;
+        font-size: .52rem !important; z-index: 10; padding: .1rem .35rem !important;
+    }
+    .btn-cotizar {
+        opacity: 1 !important; transform: scale(1) !important;
+        top: auto !important; bottom: .5rem !important; right: .5rem !important;
+        width: 26px !important; height: 26px !important; font-size: .7rem !important;
+        background: rgba(255,255,255,.12) !important; color: #e94560 !important;
+        box-shadow: none !important;
+    }
+    .btn-cotizar.activo { background: #e94560 !important; color: #fff !important; }
+    .btn-video-card {
+        top: .4rem !important; left: auto !important;
+        right: .4rem !important; bottom: auto !important;
+        width: 24px !important; height: 24px !important; font-size: .78rem !important;
+    }
+    .prod-card:hover { transform: none !important; box-shadow: 0 4px 18px rgba(233,69,96,.3) !important; }
+    .prod-card:hover .prod-foto img { transform: none !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Fuegos artificiales CodePen -->
+<div id="gui"></div>
+<div id="canvas-container">
+    <div id="mountains2"></div>
+    <div id="mountains1"></div>
+    <div id="skyline"></div>
+</div>
+
+<!-- Barra fija principal -->
+<div class="cat-topbar">
+    <div class="particles" id="particles"></div>
+    <div class="cat-topbar-portada">
+        <img src="{% static 'img/portada.png' %}" alt="">
+    </div>
+    <form method="get" id="form-buscar" data-no-confirm>
+        {% if categoria %}<input type="hidden" name="categoria" value="{{ categoria }}">{% endif %}
+        {% if subcategoria %}<input type="hidden" name="subcategoria" value="{{ subcategoria }}">{% endif %}
+        {% if marca %}<input type="hidden" name="marca" value="{{ marca }}">{% endif %}
+        <div class="cat-topbar-row1">
+            <a href="{% url 'catalogo' %}" class="cat-brand" style="text-decoration:none;" data-no-confirm>
+                <img src="{% static 'img/logo.png' %}" alt="TRUX" style="height:48px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5));">
+            </a>
+            <div class="cat-search">
+                <i class="bi bi-search"></i>
+                <input type="text" name="q" placeholder="Buscar producto..." value="{{ q }}" id="inp-buscar">
+            </div>
+            <div class="cat-total">{{ total }} producto{{ total|pluralize }}</div>
+        </div>
+    </form>
+    <div class="cat-tabs">
+        <a href="{% url 'catalogo' %}{% if q %}?q={{ q }}{% endif %}" class="cat-tab {% if not categoria %}active{% endif %}">
+            <i class="bi bi-grid me-1"></i>Todas
+        </a>
+        {% for cat in categorias %}
+        <a href="?categoria={{ cat.id }}{% if q %}&q={{ q }}{% endif %}{% if marca %}&marca={{ marca }}{% endif %}"
+           class="cat-tab {% if cat.id|stringformat:'s' == categoria %}active{% endif %}">
+            {{ cat.nombre }} <span style="opacity:.7;font-size:.7rem;">{{ cat.total }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Tabs subcategorías fijos -->
+{% if subcategorias_filtradas %}
+<div class="sub-topbar" id="sub-topbar">
+    <a href="?categoria={{ categoria }}{% if q %}&q={{ q }}{% endif %}{% if marca %}&marca={{ marca }}{% endif %}"
+       class="sub-tab {% if not subcategoria %}active{% endif %}">Todas</a>
+    {% for sub in subcategorias_filtradas %}
+    <a href="?categoria={{ categoria }}&subcategoria={{ sub.id }}{% if q %}&q={{ q }}{% endif %}{% if marca %}&marca={{ marca }}{% endif %}"
+       class="sub-tab {% if sub.id|stringformat:'s' == subcategoria %}active{% endif %}">{{ sub.nombre }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Espaciador -->
+<div class="topbar-spacer {% if subcategorias_filtradas %}con-sub{% endif %}"></div>
+
+<!-- Contenido -->
+<div class="cat-content">
+{% if categoria %}
+<div class="cat-activa">
+    Mostrando: <strong>{% for cat in categorias %}{% if cat.id|stringformat:'s' == categoria %}{{ cat.nombre }}{% endif %}{% endfor %}</strong>
+    {% if subcategoria %} › <strong>{% for sub in subcategorias_filtradas %}{% if sub.id|stringformat:'s' == subcategoria %}{{ sub.nombre }}{% endif %}{% endfor %}</strong>{% endif %}
+</div>
+{% endif %}
+
+{% if productos %}
+<div class="row g-3 row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5">
+    {% for prod in productos %}
+    <div class="col">
+        <div class="prod-card" data-prod-id="{{ prod.id }}" data-prod-nombre="{{ prod.nombre|lower|capfirst }}" data-prod-marca="{{ prod.marca|default:'' }}">
+            <button type="button" class="btn-cotizar" title="Agregar a cotización" data-no-confirm>
+                <i class="bi bi-plus-lg"></i>
+            </button>
+            <div class="prod-foto">
+                {% with foto=prod.fotos.first %}
+                {% if foto %}
+                <img src="{{ foto.url }}" alt="{{ prod.nombre }}"
+                     onclick="document.getElementById('lb-img').src=this.src;new bootstrap.Modal(document.getElementById('modalLB')).show()">
+                {% else %}
+                <div class="no-foto-placeholder">
+                    <i class="bi bi-fire" style="font-size:2.5rem;color:rgba(233,69,96,.5);"></i>
+                    <div class="no-foto-nombre">{{ prod.nombre }}</div>
+                </div>
+                {% endif %}
+                {% endwith %}
+                {% if prod.id in nuevos_ids %}
+                <span class="badge-nuevo">🆕 Nuevo</span>
+                {% endif %}
+                {% if prod.descripcion %}
+                <a class="btn-video-card {% if prod.id in nuevos_ids %}con-nuevo{% endif %}"
+                   href="{{ prod.descripcion }}" target="_blank" rel="noopener"
+                   onclick="event.stopPropagation()" title="Ver video">
+                    <i class="bi bi-play-fill"></i>
+                </a>
+                {% endif %}
+                <div class="prod-overlay">
+                    <div class="prod-nombre">{{ prod.nombre }}</div>
+                    {% with pres_list=prod.presentaciones.all %}
+                    {% if pres_list %}
+                    <div class="prod-presentaciones">
+                        {% for pres in pres_list %}
+                        <span class="prod-pres-badge">{{ pres.tipo_venta }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if productos.has_other_pages %}
+<nav class="cat-paginacion">
+    <ul class="pagination mb-0 gap-1">
+        {% if productos.has_previous %}
+        <li class="page-item"><a class="page-link" href="?{{ query_string }}&page={{ productos.previous_page_number }}"><i class="bi bi-chevron-left"></i></a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+        {% endif %}
+        {% for num in productos.paginator.page_range %}
+            {% if productos.number == num %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > productos.number|add:'-3' and num < productos.number|add:'3' %}
+            <li class="page-item"><a class="page-link" href="?{{ query_string }}&page={{ num }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if productos.has_next %}
+        <li class="page-item"><a class="page-link" href="?{{ query_string }}&page={{ productos.next_page_number }}"><i class="bi bi-chevron-right"></i></a></li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="text-center py-5 text-muted">
+    <i class="bi bi-search fs-1"></i>
+    <p class="mt-2">No se encontraron productos.</p>
+    <a href="{% url 'catalogo' %}" class="btn btn-outline-secondary btn-sm mt-1">Limpiar filtros</a>
+</div>
+{% endif %}
+
+<!-- Banner portada al final -->
+<div class="cat-banner-final">
+    <img src="{% static 'img/portada.png' %}" alt="Fuegos Artificiales TRUX">
+    <div class="cat-banner-final-overlay"></div>
+</div>
+
+<div class="banner-redes">
+    <h3>¡Síguenos en redes sociales!</h3>
+    <p>Mira nuestras demostraciones y novedades en Facebook y TikTok</p>
+    <div class="banner-redes-btns">
+        <a href="https://www.facebook.com/p/Fuegos-Artificiales-SAC-100063812722128/" target="_blank" class="btn-social btn-facebook">
+            <i class="bi bi-facebook" style="font-size:1rem;"></i>
+            <span>Facebook</span>
+        </a>
+        <a href="https://www.tiktok.com/@fuegosartificialestruxx" target="_blank" class="btn-social btn-tiktok">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.32 6.32 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg>
+            <span>TikTok</span>
+        </a>
+    </div>
+</div>
+<div class="cat-footer">© 2026 Fuegos Artificiales TRUX · Todos los derechos reservados</div>
+</div><!-- fin cat-content -->
+
+<!-- Modal video -->
+<div class="modal-video-overlay" id="modal-video-cat" onclick="cerrarVideocat()">
+    <div class="modal-video-inner" onclick="event.stopPropagation()">
+        <button class="btn-cerrar-video" onclick="cerrarVideocat()">✕</button>
+        <iframe id="video-iframe-cat" src="" allowfullscreen allow="autoplay"></iframe>
+    </div>
+</div>
+
+<!-- Botones flotantes redes -->
+<div class="btns-sociales">
+    <a href="https://www.tiktok.com/@fuegosartificialestruxx" target="_blank" class="btn-social btn-tiktok">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.32 6.32 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg>
+        <span>TikTok</span>
+    </a>
+    <a href="https://www.facebook.com/p/Fuegos-Artificiales-SAC-100063812722128/" target="_blank" class="btn-social btn-facebook">
+        <i class="bi bi-facebook" style="font-size:1rem;"></i>
+        <span>Facebook</span>
+    </a>
+    <a href="https://wa.me/51960510329" target="_blank" class="btn-social btn-whatsapp">
+        <i class="bi bi-whatsapp" style="font-size:1rem;"></i>
+        <span>Contáctanos</span>
+    </a>
+</div>
+
+<!-- Botón flotante cotización -->
+<button type="button" class="btn-cotizacion-flotante" id="btn-ver-cotizacion" data-bs-toggle="modal" data-bs-target="#modalCotizacion" data-no-confirm>
+    <i class="bi bi-card-checklist"></i>
+    <span class="texto">Cotización</span>
+    <span class="badge-count" id="contador-cotizacion">0</span>
+</button>
+
+<!-- Modal cotización -->
+<div class="modal fade" id="modalCotizacion" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Mi lista de cotización</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="lista-cotizacion"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-vaciar-cotizacion">Vaciar lista</button>
+                <a href="#" target="_blank" class="btn btn-success btn-sm" id="btn-enviar-cotizacion">
+                    <i class="bi bi-whatsapp me-1"></i>Enviar por WhatsApp
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div class="modal fade" id="modalLB" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-2">
+                <img id="lb-img" src="" style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:8px;">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
+<script src="{% static 'js/fireworks.js' %}"></script>
+<script>
+// Búsqueda en tiempo real — busca en general sin filtro de categoría
+let timer;
+document.getElementById('inp-buscar').addEventListener('input', function() {
+    clearTimeout(timer);
+    const val = this.value;
+    timer = setTimeout(() => {
+        const form = document.getElementById('form-buscar');
+        // Si hay texto, quitar filtros de categoría/subcategoría
+        if (val.trim()) {
+            form.querySelectorAll('input[name="categoria"], input[name="subcategoria"]').forEach(el => el.remove());
+        }
+        form.submit();
+    }, 500);
+});
+
+// Ajustar top del sub-topbar según altura del cat-topbar
+const subTopbar = document.getElementById('sub-topbar');
+if (subTopbar) {
+    const catTopbar = document.querySelector('.cat-topbar');
+    if (catTopbar) subTopbar.style.top = catTopbar.offsetHeight + 'px';
+}
+
+// === Cotización (lista de interés, sin precios) ===
+const LS_KEY = 'charito_cotizacion';
+
+function obtenerCotizacion() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch (e) { return []; }
+}
+function guardarCotizacion(lista) {
+    localStorage.setItem(LS_KEY, JSON.stringify(lista));
+    actualizarUI();
+}
+function actualizarUI() {
+    const lista = obtenerCotizacion();
+    const contador = document.getElementById('contador-cotizacion');
+    const btnFlotante = document.getElementById('btn-ver-cotizacion');
+    contador.textContent = lista.length;
+    btnFlotante.style.display = lista.length > 0 ? 'flex' : 'none';
+
+    // Marcar botones activos en tarjetas visibles
+    document.querySelectorAll('.prod-card').forEach(card => {
+        const id = card.dataset.prodId;
+        const btn = card.querySelector('.btn-cotizar');
+        const enLista = lista.some(p => p.id === id);
+        btn.classList.toggle('activo', enLista);
+        btn.querySelector('i').className = enLista ? 'bi bi-check-lg' : 'bi bi-plus-lg';
+    });
+
+    // Renderizar lista en modal
+    const cont = document.getElementById('lista-cotizacion');
+    if (lista.length === 0) {
+        cont.innerHTML = '<p class="text-muted small text-center py-3">Aún no agregaste productos.</p>';
+    } else {
+        cont.innerHTML = lista.map(p => `
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                <div>
+                    <div class="small fw-semibold">${p.nombre}</div>
+                    ${p.marca ? `<div class="text-muted" style="font-size:.72rem;">${p.marca}</div>` : ''}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center border rounded">
+                        <button type="button" class="btn btn-sm btn-link px-2 py-0 btn-cant-menos" data-id="${p.id}">−</button>
+                        <span class="small px-1" style="min-width:20px;text-align:center;">${p.cantidad || 1}</span>
+                        <button type="button" class="btn btn-sm btn-link px-2 py-0 btn-cant-mas" data-id="${p.id}">+</button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-item" data-id="${p.id}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Armar link de WhatsApp
+    const btnEnviar = document.getElementById('btn-enviar-cotizacion');
+    if (lista.length > 0) {
+        let msg = 'Hola, quisiera cotizar estos productos:\n\n';
+        lista.forEach((p, i) => { msg += `${i + 1}. ${p.nombre}${p.marca ? ' - ' + p.marca : ''} (x${p.cantidad || 1})\n`; });
+        btnEnviar.href = 'https://wa.me/51960510329?text=' + encodeURIComponent(msg);
+        btnEnviar.style.display = '';
+    } else {
+        btnEnviar.style.display = 'none';
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-cotizar');
+    if (btn) {
+        const card = btn.closest('.prod-card');
+        const id = card.dataset.prodId;
+        let lista = obtenerCotizacion();
+        if (lista.some(p => p.id === id)) {
+            lista = lista.filter(p => p.id !== id);
+        } else {
+            lista.push({ id, nombre: card.dataset.prodNombre, marca: card.dataset.prodMarca, cantidad: 1 });
+        }
+        guardarCotizacion(lista);
+        return;
+    }
+    const btnQuitar = e.target.closest('.btn-quitar-item');
+    if (btnQuitar) {
+        const id = btnQuitar.dataset.id;
+        guardarCotizacion(obtenerCotizacion().filter(p => p.id !== id));
+        return;
+    }
+    const btnMas = e.target.closest('.btn-cant-mas');
+    if (btnMas) {
+        const lista = obtenerCotizacion();
+        const item = lista.find(p => p.id === btnMas.dataset.id);
+        if (item) item.cantidad = (item.cantidad || 1) + 1;
+        guardarCotizacion(lista);
+        return;
+    }
+    const btnMenos = e.target.closest('.btn-cant-menos');
+    if (btnMenos) {
+        const lista = obtenerCotizacion();
+        const item = lista.find(p => p.id === btnMenos.dataset.id);
+        if (item && item.cantidad > 1) item.cantidad -= 1;
+        guardarCotizacion(lista);
+        return;
+    }
+    if (e.target.closest('#btn-vaciar-cotizacion')) {
+        guardarCotizacion([]);
+    }
+});
+
+actualizarUI();
+
+// Video modal
+function _youtubeEmbed(url) {
+    var m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/);
+    return m ? 'https://www.youtube.com/embed/' + m[1] + '?rel=0&autoplay=1' : null;
+}
+function abrirVideocat(url) {
+    var embed = _youtubeEmbed(url);
+    if (!embed) return;
+    document.getElementById('video-iframe-cat').src = embed;
+    document.getElementById('modal-video-cat').classList.add('abierto');
+}
+function cerrarVideocat() {
+    document.getElementById('video-iframe-cat').src = '';
+    document.getElementById('modal-video-cat').classList.remove('abierto');
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') cerrarVideocat();
+});
+
+// Fuegos artificiales — cargado desde fireworks.js
+
+// Partículas animadas en topbar
+(function() {
+    const container = document.getElementById('particles');
+    if (!container) return;
+    const colores = ['#FFD700','#FF6B35','#fff','#e94560','#FFA500','#FFEC47'];
+    for (let i = 0; i < 18; i++) {
+        const s = document.createElement('span');
+        s.className = 'spark';
+        const size = Math.random() * 4 + 2;
+        s.style.cssText = [
+            'left:' + Math.random() * 100 + '%',
+            'width:' + size + 'px',
+            'height:' + size + 'px',
+            'background:' + colores[Math.floor(Math.random() * colores.length)],
+            'animation-duration:' + (Math.random() * 2 + 1.5) + 's',
+            'animation-delay:' + (Math.random() * 3) + 's',
+            'box-shadow:0 0 4px ' + colores[Math.floor(Math.random() * colores.length)],
+        ].join(';');
+        container.appendChild(s);
+    }
+})();
+
+// Animación escalonada de tarjetas
+document.querySelectorAll('.prod-card').forEach(function(card, i) {
+    card.style.animationDelay = Math.min(i * 60, 500) + 'ms';
+});
+
+// Íconos en tabs de categoría
+const iconosCat = {
+    'bombard': '🎆', 'masivo': '💥', 'cohete': '🚀', 'volcán': '🌋',
+    'volcan': '🌋', 'estrella': '⭐', 'display': '🎇', 'fuente': '✨',
+    'roman': '🎆', 'pirotecnia': '🎆', 'especial': '🔥', 'todas': '🏷️'
+};
+document.querySelectorAll('.cat-tab').forEach(function(tab) {
+    const texto = tab.textContent.trim().toLowerCase();
+    for (const [clave, icono] of Object.entries(iconosCat)) {
+        if (texto.includes(clave)) {
+            tab.innerHTML = icono + ' ' + tab.innerHTML.trim();
+            break;
+        }
+    }
+});
+</script>
+{% endblock %}

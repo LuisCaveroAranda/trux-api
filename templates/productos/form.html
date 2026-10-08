@@ -1,0 +1,486 @@
+{% extends 'base.html' %}
+{% block title %}{% if producto %}Editar{% else %}Nuevo{% endif %} Producto{% endblock %}
+{% block page_title %}<strong>{% if producto %}Editar producto — {{ producto.codigo }}{% else %}Nuevo producto{% endif %}</strong>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .presentacion-card {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: .75rem;
+        position: relative;
+    }
+    .presentacion-card .btn-remove {
+        position: absolute;
+        top: .75rem;
+        right: .75rem;
+    }
+    .fraccion-box {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: .4rem .75rem;
+        margin-top: .5rem;
+        font-size: .82rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .fraccion-row { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; }
+    .form-switch .form-check-input { width: 2.5em; }
+    .section-title {
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6c757d;
+        font-weight: 700;
+        margin-bottom: .75rem;
+    }
+    .drop-zone {
+        position: relative;
+        border: 2px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color .2s, background .2s;
+        min-height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #e94560; background: #fff5f7; }
+    .drop-zone .drop-input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+    }
+    .drop-placeholder { pointer-events: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="post" id="form-producto" enctype="multipart/form-data">
+{% csrf_token %}
+
+<div class="row g-3">
+    <!-- Columna principal -->
+    <div class="col-lg-8">
+
+        <!-- Información general -->
+        <div class="card p-3 mb-3">
+            <div class="section-title">Información general</div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Categoría</label>
+                    <select name="categoria" class="form-select">
+                        <option value="">— Sin categoría —</option>
+                        {% for cat in categorias %}
+                        <option value="{{ cat.id }}" {% if producto.categoria_id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Subcategoría</label>
+                    <select name="subcategoria" class="form-select" id="select-subcategoria">
+                        <option value="">— Sin subcategoría —</option>
+                        {% for sub in subcategorias %}
+                        <option value="{{ sub.id }}" data-categoria="{{ sub.categoria_id }}"
+                            {% if producto.subcategoria_id == sub.id %}selected{% endif %}>{{ sub.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Nombre del producto <span class="text-danger">*</span></label>
+                    <input type="text" name="nombre" class="form-control" value="{{ producto.nombre|default:'' }}" required autofocus>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Marca</label>
+                    <select name="marca" class="form-select">
+                        <option value="">— Sin marca —</option>
+                        {% for m in marcas %}
+                        <option value="{{ m.id }}" {% if producto.marca_id == m.id %}selected{% endif %}>{{ m.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Estado</label>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" name="estado_activo" id="estado_activo"
+                               {% if producto.estado == 'activo' or not producto %}checked{% endif %}>
+                        <label class="form-check-label" for="estado_activo">Producto activo</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Aliases / apodos <small class="text-muted fw-normal">para búsqueda con IA</small></label>
+                    <input type="text" name="aliases" class="form-control" value="{{ producto.aliases|default:'' }}"
+                           placeholder="escobilla de madera, escobilla para lavar, escobilla ropa...">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-play-circle text-danger me-1"></i>
+                        Enlace de video <small class="text-muted fw-normal">YouTube — se muestra en el catálogo público</small>
+                    </label>
+                    <input type="text" name="descripcion" class="form-control" value="{{ producto.descripcion|default:'' }}"
+                           placeholder="https://www.youtube.com/watch?v=...">
+                    {% if producto.descripcion %}
+                    <div class="mt-1">
+                        <a href="{{ producto.descripcion }}" target="_blank" class="text-danger" style="font-size:.8rem;">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Ver video actual
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Presentaciones y precios -->
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="section-title mb-0">Presentaciones y precios</div>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-add-pres">
+                    <i class="bi bi-plus"></i> Agregar presentación
+                </button>
+            </div>
+
+            <div id="presentaciones-container">
+                {% for pres in presentaciones %}
+                <div class="presentacion-card" data-index="{{ forloop.counter0 }}">
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove"><i class="bi bi-trash"></i></button>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Tipo de venta</label>
+                            <input type="text" name="pres_tipo[]" class="form-control form-control-sm"
+                                   value="{{ pres.tipo_venta }}" placeholder="Unidad, Docena, Display..." required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Cantidad</label>
+                            <input type="number" name="pres_unidades[]" class="form-control form-control-sm"
+                                   value="{{ pres.unidades_base }}" min="1" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">P. minorista (S/)</label>
+                            <input type="number" name="pres_precio[]" class="form-control form-control-sm"
+                                   value="{{ pres.precio_minorista|stringformat:'.2f'|default:'' }}" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">P. mayorista (S/)</label>
+                            <input type="number" name="pres_precio_may[]" class="form-control form-control-sm"
+                                   value="{{ pres.precio_mayorista|stringformat:'.2f'|default:'' }}" step="0.01" min="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Costo (S/)</label>
+                            {% with costo=pres.costos_proveedor.first %}
+                            <input type="number" name="pres_costo[]" class="form-control form-control-sm"
+                                   value="{{ costo.costo|stringformat:'.2f'|default:'' }}" step="0.01" min="0" placeholder="Opcional">
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <!-- Fracciones -->
+                    <div class="fraccion-box">
+                        <div class="form-check">
+                            <input class="form-check-input chk-mitad" type="checkbox"
+                                   name="pres_mitad_{{ forloop.counter0 }}" value="1"
+                                   {% for f in pres.fracciones.all %}{% if f.nombre == 'mitad' %}checked{% endif %}{% endfor %}>
+                            <label class="form-check-label small">Permite mitad</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input chk-cuarto" type="checkbox"
+                                   name="pres_cuarto_{{ forloop.counter0 }}" value="1"
+                                   {% for f in pres.fracciones.all %}{% if f.nombre == 'cuarto' %}checked{% endif %}{% endfor %}>
+                            <label class="form-check-label small">Permite cuarto</label>
+                        </div>
+                        <small class="text-muted ms-auto">Precio y cantidad se calculan automáticamente.</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna lateral -->
+    <div class="col-lg-4">
+        {% if producto %}
+        <div class="card p-3 mb-3">
+            <div class="section-title">Código</div>
+            <div class="fw-bold fs-5">{{ producto.codigo }}</div>
+        </div>
+        {% endif %}
+
+        <div class="card p-3 mb-3">
+            <div class="section-title">Proveedores</div>
+            {% for pp in producto.presentaciones.all %}
+            {% for cp in pp.costos_proveedor.all %}
+            <div class="d-flex justify-content-between mb-1 small">
+                <span>{{ cp.proveedor.nombre }}</span>
+                {% if cp.es_principal %}<span class="badge bg-success">Principal</span>{% endif %}
+            </div>
+            {% endfor %}
+            {% endfor %}
+            <select name="proveedor_nuevo" class="form-select form-select-sm mt-2">
+                <option value="">+ Agregar proveedor</option>
+                {% for prov in proveedores %}
+                <option value="{{ prov.id }}">{{ prov.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="card p-3 mb-3">
+            <div class="section-title">Fotos</div>
+            {% if producto %}
+            {% for foto in fotos %}
+            <div class="position-relative mb-2">
+                <img src="{{ foto.url }}" style="width:100%;height:200px;object-fit:contain;border-radius:8px;background:#f8f9fa;" class="border">
+                {% if foto.es_principal %}<span class="badge bg-success position-absolute top-0 start-0 m-1">Principal</span>{% endif %}
+                <button type="submit" form="form-eliminar-foto-{{ foto.id }}"
+                        onclick="return confirm('¿Eliminar esta foto?')"
+                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-1"
+                        style="font-size:11px;padding:2px 6px;">× Eliminar</button>
+            </div>
+            {% empty %}
+            {% endfor %}
+            <div id="drop-zone-edit" class="drop-zone">
+                <img id="preview-foto-edit" src="" style="display:none;width:100%;max-height:280px;object-fit:contain;border-radius:6px;">
+                <div id="drop-text-edit" class="drop-placeholder">
+                    <i class="bi bi-cloud-arrow-up fs-3 text-muted"></i>
+                    <div class="text-muted small mt-1">Arrastra una foto aquí o haz clic</div>
+                </div>
+                <input type="file" name="foto" id="input-foto-edit" class="drop-input" accept="image/jpeg,image/png,image/webp,image/gif">
+            </div>
+            {% else %}
+            <div id="drop-zone-nueva" class="drop-zone mt-2">
+                <img id="preview-foto" src="" style="display:none;width:100%;max-height:280px;object-fit:contain;border-radius:6px;">
+                <div id="drop-text-nueva" class="drop-placeholder">
+                    <i class="bi bi-cloud-arrow-up fs-3 text-muted"></i>
+                    <div class="text-muted small mt-1">Arrastra una foto aquí o haz clic <span class="badge bg-secondary ms-1">Opcional</span></div>
+                </div>
+                <input type="file" name="foto" id="input-foto-nueva" class="drop-input" accept="image/jpeg,image/png,image/webp,image/gif">
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="section-title mb-0">Campos personalizados</div>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-campo"><i class="bi bi-plus"></i> Agregar</button>
+            </div>
+            <div id="campos-container">
+            {% for campo in campos %}
+            <div class="row g-1 mb-1 campo-row">
+                <div class="col-5"><input type="text" name="campo_nombre[]" class="form-control form-control-sm" value="{{ campo.nombre }}" placeholder="Nombre"></div>
+                <div class="col-6"><input type="text" name="campo_valor[]" class="form-control form-control-sm" value="{{ campo.valor }}" placeholder="Valor"></div>
+                <div class="col-1"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-campo px-2">×</button></div>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mt-3 pb-4 position-sticky bottom-0 bg-white py-2 border-top" style="z-index:10;">
+    <button type="submit" class="btn btn-primary px-4" data-confirm="Guardar el producto?"><i class="bi bi-check me-1"></i>Guardar producto</button>
+    <a href="{% url 'productos:lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+</div>
+</form>
+
+<!-- Template para nueva presentación -->
+<template id="tpl-presentacion">
+    <div class="presentacion-card">
+        <button type="button" class="btn btn-sm btn-outline-danger btn-remove"><i class="bi bi-trash"></i></button>
+        <div class="row g-2">
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Tipo de venta</label>
+                <input type="text" name="pres_tipo[]" class="form-control form-control-sm" placeholder="Unidad, Docena, Display..." required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Cantidad</label>
+                <input type="number" name="pres_unidades[]" class="form-control form-control-sm" value="1" min="1" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">P. minorista (S/)</label>
+                <input type="number" name="pres_precio[]" class="form-control form-control-sm" step="0.01" min="0">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">P. mayorista (S/)</label>
+                <input type="number" name="pres_precio_may[]" class="form-control form-control-sm" step="0.01" min="0">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Costo (S/)</label>
+                <input type="number" name="pres_costo[]" class="form-control form-control-sm" step="0.01" min="0" placeholder="Opcional">
+            </div>
+        </div>
+        <div class="fraccion-box">
+            <div class="form-check">
+                <input class="form-check-input chk-mitad" type="checkbox" name="pres_mitad[]" value="1">
+                <label class="form-check-label small">Permite mitad</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input chk-cuarto" type="checkbox" name="pres_cuarto[]" value="1">
+                <label class="form-check-label small">Permite cuarto</label>
+                </div>
+            </div>
+            <small class="text-muted">El precio y cantidad se calculan automáticamente.</small>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function reindexarPresentaciones() {
+    document.querySelectorAll('#presentaciones-container .presentacion-card').forEach((card, i) => {
+        card.dataset.index = i;
+        card.querySelector('.chk-mitad').name = `pres_mitad_${i}`;
+        card.querySelector('.chk-cuarto').name = `pres_cuarto_${i}`;
+    });
+}
+
+// Agregar presentación
+document.getElementById('btn-add-pres').addEventListener('click', function() {
+    const tpl = document.getElementById('tpl-presentacion').content.cloneNode(true);
+    document.getElementById('presentaciones-container').appendChild(tpl);
+    reindexarPresentaciones();
+    calcularCostos();
+});
+
+// Eliminar presentación
+document.getElementById('presentaciones-container').addEventListener('click', function(e) {
+    if (e.target.closest('.btn-remove')) {
+        e.target.closest('.presentacion-card').remove();
+        reindexarPresentaciones();
+    }
+});
+
+// Calcula costos proporcionales usando la presentación con mayor costo ingresado
+function calcularCostos() {
+    const cards = Array.from(document.querySelectorAll('#presentaciones-container .presentacion-card'));
+
+    // Buscar la presentación con costo ingresado manualmente (mayor unidades o cualquiera con costo)
+    let origen = null;
+    let costoUnitario = null;
+
+    cards.forEach(card => {
+        const costo = parseFloat(card.querySelector('[name="pres_costo[]"]').value);
+        const unidades = parseFloat(card.querySelector('[name="pres_unidades[]"]').value) || 1;
+        if (costo && (!origen || unidades > parseFloat(origen.querySelector('[name="pres_unidades[]"]').value))) {
+            origen = card;
+            costoUnitario = costo / unidades;
+        }
+    });
+
+    if (!costoUnitario) return;
+
+    cards.forEach(card => {
+        if (card === origen) return;
+        const inputCosto = card.querySelector('[name="pres_costo[]"]');
+        if (inputCosto.dataset.manual === '1') return; // no sobreescribir si fue ingresado manualmente
+        const unidades = parseFloat(card.querySelector('[name="pres_unidades[]"]').value) || 1;
+        inputCosto.value = (costoUnitario * unidades).toFixed(2);
+    });
+}
+
+const container = document.getElementById('presentaciones-container');
+
+container.addEventListener('input', function(e) {
+    if (e.target.matches('[name="pres_costo[]"]')) {
+        if (e.target.value) {
+            e.target.dataset.manual = '1';
+        } else {
+            delete e.target.dataset.manual;
+        }
+        calcularCostos();
+    }
+    if (e.target.matches('[name="pres_unidades[]"]')) {
+        calcularCostos();
+    }
+});
+
+// Filtrar subcategorías según categoría
+const selectCat = document.querySelector('[name="categoria"]');
+const selectSub = document.getElementById('select-subcategoria');
+if (selectCat && selectSub) {
+    function filtrarSubcategorias() {
+        const catId = selectCat.value;
+        Array.from(selectSub.options).forEach(opt => {
+            if (!opt.value) return;
+            opt.style.display = (!catId || opt.dataset.categoria === catId) ? '' : 'none';
+        });
+    }
+    selectCat.addEventListener('change', filtrarSubcategorias);
+    filtrarSubcategorias();
+}
+
+// Campos personalizados
+const btnAddCampo = document.getElementById('btn-add-campo');
+if (btnAddCampo) {
+    btnAddCampo.addEventListener('click', function() {
+        const div = document.createElement('div');
+        div.className = 'row g-1 mb-1 campo-row';
+        div.innerHTML = `<div class="col-5"><input type="text" name="campo_nombre[]" class="form-control form-control-sm" placeholder="Nombre"></div>
+            <div class="col-6"><input type="text" name="campo_valor[]" class="form-control form-control-sm" placeholder="Valor"></div>
+            <div class="col-1"><button type="button" class="btn btn-sm btn-outline-danger btn-remove-campo px-2">×</button></div>`;
+        document.getElementById('campos-container').appendChild(div);
+    });
+}
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.btn-remove-campo')) {
+        e.target.closest('.campo-row').remove();
+    }
+});
+
+// Drop zone con preview
+function activarDropZone(zoneId, inputId, previewId, textId) {
+    const zone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    if (!zone || !input) return;
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file) procesarFoto(file, input, previewId, textId);
+    });
+    input.addEventListener('change', function() {
+        if (this.files[0]) procesarFoto(this.files[0], input, previewId, textId);
+    });
+}
+
+function procesarFoto(file, input, previewId, textId) {
+    if (!file.type.startsWith('image/')) {
+        alert('Solo se permiten archivos de imagen (JPG, PNG, WEBP, GIF).');
+        input.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = document.getElementById(previewId);
+        const txt = document.getElementById(textId);
+        img.src = e.target.result;
+        img.style.display = '';
+        if (txt) txt.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+activarDropZone('drop-zone-edit', 'input-foto-edit', 'preview-foto-edit', 'drop-text-edit');
+activarDropZone('drop-zone-nueva', 'input-foto-nueva', 'preview-foto', 'drop-text-nueva');
+</script>
+
+{% if producto %}
+<form id="form-subir-foto" method="post" action="{% url 'productos:subir_foto' producto.id %}" enctype="multipart/form-data" style="display:none">
+    {% csrf_token %}
+</form>
+{% for foto in fotos %}
+<form id="form-eliminar-foto-{{ foto.id }}" method="post" action="{% url 'productos:eliminar_foto' foto.id %}" style="display:none">
+    {% csrf_token %}
+</form>
+{% endfor %}
+{% endif %}
+{% endblock %}

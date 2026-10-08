@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python manage.py migrate auth --fake)",
+      "Bash(python manage.py migrate auth)"
+    ]
+  }
+}

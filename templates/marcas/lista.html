@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Marcas{% endblock %}
+{% block page_title %}<strong>Marcas</strong>{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+    <!-- Nueva marca -->
+    <div class="col-lg-4">
+        <div class="card p-3">
+            <div class="fw-bold mb-3" style="font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:#6c757d;">Nueva marca</div>
+            <form method="post" action="{% url 'crear_marca' %}">
+                {% csrf_token %}
+                <div class="input-group">
+                    <input type="text" name="nombre" class="form-control" placeholder="Nombre de marca" required autofocus>
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-plus"></i> Agregar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de marcas -->
+    <div class="col-lg-8">
+        <div class="card p-3">
+            {% if marcas %}
+            <table class="table table-sm table-hover mb-0">
+                <thead><tr><th>Marca</th><th class="text-end">Acciones</th></tr></thead>
+                <tbody>
+                {% for marca in marcas %}
+                <tr>
+                    <td class="align-middle">{{ marca.nombre }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'editar_marca' marca.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                        <form method="post" action="{% url 'eliminar_marca' marca.id %}" style="display:inline;" onsubmit="return confirm('¿Eliminar «{{ marca.nombre }}»?')">
+                            {% csrf_token %}
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-patch-check fs-1"></i>
+                <p class="mt-2">No hay marcas aún. Crea la primera.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

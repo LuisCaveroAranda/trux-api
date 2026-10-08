@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Reporte de Inventario{% endblock %}
+{% block page_title %}<strong>Reporte de Inventario</strong>{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Almacen</label>
+            <select name="almacen" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for a in almacenes %}
+                <option value="{{ a.id }}" {% if almacen_sel == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Categoria</label>
+            <select name="categoria" class="form-select form-select-sm">
+                <option value="">Todas</option>
+                {% for c in categorias %}
+                <option value="{{ c.id }}" {% if categoria_sel == c.id|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search me-1"></i>Filtrar</button>
+            <a href="{% url 'reportes:inventario' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x"></i></a>
+        </div>
+    </form>
+</div>
+
+<!-- Métricas -->
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Productos con stock</div>
+            <div class="fw-bold fs-4">{{ total_productos }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Total unidades base</div>
+            <div class="fw-bold fs-4">{{ total_ub }}</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Almacenes activos</div>
+            <div class="fw-bold fs-4">{{ almacenes_lista|length }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de inventario -->
+<div class="card p-3">
+    <h6 class="fw-bold mb-3">Stock por producto y almacen</h6>
+    {% if filas %}
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Categoria</th>
+                    {% for a in almacenes_lista %}
+                    <th class="text-center">{{ a.nombre }}</th>
+                    {% endfor %}
+                    <th class="text-center">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for fila in filas %}
+            <tr>
+                <td>
+                    <a href="{% url 'productos:detalle' fila.producto.id %}" class="fw-semibold text-decoration-none">
+                        {{ fila.producto.nombre }}
+                    </a>
+                </td>
+                <td class="text-muted small">{{ fila.producto.categoria|default:"—" }}</td>
+                {% for stock in fila.stocks %}
+                <td class="text-center small {% if stock <= 0 %}text-muted{% else %}fw-semibold text-success{% endif %}">
+                    {% if stock > 0 %}{{ stock }}{% else %}—{% endif %}
+                </td>
+                {% endfor %}
+                <td class="text-center fw-bold">
+                    <span>
+                        {% for d in fila.descomp %}
+                        {{ d.cantidad }} {{ d.pres.tipo_venta }}{% if not forloop.last %} / {% endif %}
+                        {% endfor %}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">Sin stock registrado para los filtros aplicados.</p>
+    {% endif %}
+</div>
+{% endblock %}

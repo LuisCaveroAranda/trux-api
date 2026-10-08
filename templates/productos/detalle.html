@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% block title %}{{ producto.nombre }}{% endblock %}
+{% block page_title %}<strong>{{ producto.nombre }}</strong> <small class="text-muted fw-normal">{{ producto.codigo }}</small>{% endblock %}
+
+{% block content %}
+<div class="d-flex gap-2 mb-3">
+    <a href="{% url 'productos:editar' producto.id %}" class="btn btn-primary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+    <a href="{% url 'productos:lista' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-8">
+
+        <!-- Info básica -->
+        <div class="card p-3 mb-3">
+            <div class="d-flex gap-3 align-items-start">
+                <div style="width:80px;height:80px;flex-shrink:0;">
+                    {% with foto=producto.fotos.first %}
+                    {% if foto %}
+                    <img src="{{ foto.url }}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:zoom-in;" alt="{{ producto.nombre }}"
+                         onclick="document.getElementById('lightbox-img').src=this.src;new bootstrap.Modal(document.getElementById('modalFoto')).show()">
+                    {% else %}
+                    <div style="width:80px;height:80px;background:#f1f3f5;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-image" style="font-size:2rem;color:#adb5bd;"></i>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+                <div class="flex-grow-1">
+                    <div class="d-flex gap-2 align-items-center mb-1">
+                        <h5 class="mb-0">{{ producto.nombre }}</h5>
+                        <span class="badge {% if producto.estado == 'activo' %}bg-success{% elif producto.estado == 'inactivo' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+                            {{ producto.get_estado_display }}
+                        </span>
+                    </div>
+                    <div class="text-muted small mb-2">{{ producto.codigo }}</div>
+                    <div class="d-flex flex-wrap gap-3 text-muted small">
+                        {% if producto.categoria %}<span><i class="bi bi-tag me-1"></i>{{ producto.categoria }}</span>{% endif %}
+                        {% if producto.subcategoria %}<span><i class="bi bi-diagram-3 me-1"></i>{{ producto.subcategoria.nombre }}</span>{% endif %}
+                        {% if producto.marca %}<span><i class="bi bi-bookmark me-1"></i>{{ producto.marca }}</span>{% endif %}
+                    </div>
+                    {% if producto.aliases %}
+                    <div class="mt-2">
+                        {% for alias in producto.alias_lista %}
+                        <span class="badge bg-light text-dark border">{{ alias }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Presentaciones y precios -->
+        <div class="card p-3 mb-3">
+            <h6 class="fw-bold mb-3">Presentaciones y precios</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Presentación</th>
+                            <th class="text-center">Unidades</th>
+                            <th class="text-end">Costo</th>
+                            <th class="text-end">Costo c/flete</th>
+                            <th class="text-end">Precio venta</th>
+                            <th class="text-end">Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for pres in producto.presentaciones.all %}
+                    <tr>
+                        <td class="fw-semibold">{{ pres.tipo_venta }}</td>
+                        <td class="text-center text-muted">{{ pres.unidades_base }}</td>
+                        <td class="text-end">
+                            {% with costo=pres.costos_proveedor.first %}
+                            {% if costo %}S/ {{ costo.costo }}{% else %}<span class="text-muted">—</span>{% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="text-end">
+                            {% with costo=pres.costos_proveedor.first %}
+                            {% if costo.costo_con_flete %}
+                                <span class="text-success fw-semibold">S/ {{ costo.costo_con_flete|floatformat:2 }}</span>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="text-end">
+                            {% if pres.precio_minorista %}S/ {{ pres.precio_minorista }}
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% with inv=pres.inventarios.first %}
+                            {% if inv %}
+                            <span class="{% if inv.stock_actual <= 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">
+                                {{ inv.stock_actual }}
+                            </span>
+                            {% else %}<span class="text-muted">0</span>{% endif %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-muted text-center">Sin presentaciones registradas.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Historial de costos -->
+        <div class="card p-3 mb-3">
+            <h6 class="fw-bold mb-3">Historial de costos</h6>
+            {% if historial_costos %}
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead><tr><th>Fecha</th><th>Compra</th><th>Presentación</th><th>Proveedor</th><th class="text-end">Costo</th><th class="text-end">Costo c/flete</th></tr></thead>
+                    <tbody>
+                    {% for h in historial_costos %}
+                    <tr>
+                        <td class="text-muted small">{{ h.fecha|date:"d/m/Y" }}</td>
+                        <td class="small">{% if h.compra %}<a href="{% url 'compras:detalle' h.compra.id %}">{{ h.compra.numero }}</a>{% else %}—{% endif %}</td>
+                        <td class="small">{{ h.presentacion.tipo_venta }}</td>
+                        <td class="small">{{ h.proveedor.nombre|default:"—" }}</td>
+                        <td class="text-end small">S/ {{ h.costo|floatformat:2 }}</td>
+                        <td class="text-end small fw-semibold text-success">{% if h.costo_con_flete %}S/ {{ h.costo_con_flete|floatformat:2 }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted small mb-0">Sin historial aún.</p>
+            {% endif %}
+        </div>
+
+        <!-- Kardex -->
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Últimos movimientos</h6>
+            {% if kardex %}
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead><tr><th>Fecha</th><th>Tipo</th><th>Almacén</th><th class="text-end">Entrada</th><th class="text-end">Salida</th><th class="text-end">Stock</th></tr></thead>
+                    <tbody>
+                    {% for k in kardex %}
+                    <tr>
+                        <td class="text-muted small">{{ k.fecha|date:"d/m/Y H:i" }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ k.tipo_movimiento }}</span></td>
+                        <td class="small">{{ k.almacen.nombre }}</td>
+                        <td class="text-end text-success small">{% if k.cantidad_entrada %}+{{ k.cantidad_entrada }}{% endif %}</td>
+                        <td class="text-end text-danger small">{% if k.cantidad_salida %}-{{ k.cantidad_salida }}{% endif %}</td>
+                        <td class="text-end fw-semibold small">{{ k.stock_resultante|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted small mb-0">Sin movimientos aún.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-md-4">
+
+        <!-- Stock por almacén -->
+        <div class="card p-3 mb-3">
+            <h6 class="fw-bold mb-3">Stock por almacén</h6>
+            {% for inv in inventarios %}
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small">{{ inv.almacen.nombre }} <span class="text-muted">({{ inv.presentacion.tipo_venta }})</span></span>
+                <span class="fw-bold {% if inv.stock_actual <= 0 %}text-danger{% elif inv.stock_actual <= inv.stock_minimo %}text-warning{% else %}text-success{% endif %}">
+                    {{ inv.stock_actual }}
+                </span>
+            </div>
+            {% empty %}
+            <p class="text-muted small mb-0">Sin stock registrado.</p>
+            {% endfor %}
+            <div class="border-top pt-2 mt-2 d-flex justify-content-between">
+                <span class="small fw-semibold">Total</span>
+                <span class="fw-bold">{{ inventarios|length }} almacén(es)</span>
+            </div>
+        </div>
+
+        <!-- Proveedores -->
+        <div class="card p-3 mb-3">
+            <h6 class="fw-bold mb-3">Proveedores</h6>
+            {% for pres in producto.presentaciones.all %}
+            {% for cp in pres.costos_proveedor.all %}
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <div>
+                    <span class="small fw-semibold">{{ cp.proveedor.nombre }}</span>
+                    <span class="text-muted small"> — {{ pres.tipo_venta }}</span>
+                </div>
+                <div class="d-flex gap-1 align-items-center">
+                    <span class="small text-muted">S/ {{ cp.costo|floatformat:2 }}</span>
+                    {% if cp.costo_con_flete %}<span class="small text-success">c/f S/ {{ cp.costo_con_flete|floatformat:2 }}</span>{% endif %}
+                    {% if cp.es_principal %}<span class="badge bg-success">Principal</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% endfor %}
+            {% if not producto.presentaciones.exists %}
+            <p class="text-muted small mb-0">Sin proveedores asignados.</p>
+            {% endif %}
+        </div>
+
+        <!-- Campos personalizados -->
+        {% if producto.campos.exists %}
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Características</h6>
+            {% for campo in producto.campos.all %}
+            <div class="d-flex justify-content-between mb-1">
+                <span class="text-muted small">{{ campo.nombre }}</span>
+                <span class="small fw-semibold">{{ campo.valor }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div class="modal fade" id="modalFoto" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-2">
+                <img id="lightbox-img" src="" style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:8px;">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

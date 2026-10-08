@@ -1,0 +1,480 @@
+{% extends 'base.html' %}
+{% block title %}{% if compra %}Editar Guía{% else %}Nueva Guía de Compra{% endif %}{% endblock %}
+{% block page_title %}<strong>{% if compra %}Editar {{ compra.numero }}{% else %}Nueva Guía de Compra{% endif %}</strong>{% endblock %}
+
+{% block extra_css %}
+<style>
+    .item-row { background:#f8f9fa; border-radius:8px; padding:.75rem; margin-bottom:.5rem; }
+    #resumen { position: sticky; top: 1rem; }
+    .pres-info { font-size:.72rem; color:#6c757d; margin-top:.2rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<form method="post" id="form-compra">
+{% csrf_token %}
+<div class="row g-3">
+    <div class="col-md-8">
+        <!-- Cabecera -->
+        <div class="card p-3 mb-3">
+            <h6 class="fw-bold mb-3">Datos de la guía</h6>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Tipo <span class="text-danger">*</span></label>
+                    <select name="tipo" class="form-select" required>
+                        <option value="con_documento" {% if compra.tipo == 'con_documento' %}selected{% endif %}>Con documento</option>
+                        <option value="sin_documento" {% if compra.tipo == 'sin_documento' %}selected{% endif %}>Sin documento</option>
+                        <option value="mercado" {% if compra.tipo == 'mercado' %}selected{% endif %}>Mercado</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Proveedor</label>
+                    <select name="proveedor" class="form-select">
+                        <option value="">— Sin proveedor —</option>
+                        {% for p in proveedores %}
+                        <option value="{{ p.id }}" {% if compra.proveedor_id == p.id %}selected{% endif %}>{{ p.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Almacén destino <span class="text-danger">*</span></label>
+                    <select name="almacen" class="form-select" required>
+                        {% for a in almacenes %}
+                        <option value="{{ a.id }}" {% if compra.almacen_id == a.id %}selected{% endif %}>{{ a.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Fecha <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha" class="form-control" value="{{ compra.fecha|date:'Y-m-d'|default:'' }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">N° Documento</label>
+                    <input type="text" name="numero_documento" class="form-control" value="{{ compra.numero_documento|default:'' }}" placeholder="Factura, boleta...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Observaciones</label>
+                    <input type="text" name="nota" class="form-control" value="{{ compra.observaciones|default:'' }}" placeholder="Opcional">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Flete proveedor (S/)</label>
+                    <input type="text" inputmode="decimal" name="flete_proveedor" id="flete_proveedor" class="form-control"
+                           value="{% if compra.flete_proveedor %}{{ compra.flete_proveedor }}{% else %}0{% endif %}">
+                </div>
+            </div>
+        </div>
+
+        <!-- Items -->
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0">Productos</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-item">
+                    <i class="bi bi-plus"></i> Agregar producto
+                </button>
+            </div>
+            <div id="items-container">
+                {% for item in items %}
+                <div class="item-row">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Producto</label>
+                            <select name="item_producto" class="form-select form-select-sm item-producto" required>
+                                {% for p in productos %}
+                                <option value="{{ p.id }}" {% if item.presentacion.producto.id == p.id %}selected{% endif %}>{{ p.nombre }}{% if p.marca %} - {{ p.marca }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Presentación</label>
+                            <select name="item_presentacion" class="form-select form-select-sm item-presentacion" required
+                                    data-pres-id="{{ item.presentacion.id|default:'' }}">
+                                {% if item.presentacion %}
+                                <option value="{{ item.presentacion.id }}" selected>
+                                    {{ item.presentacion.tipo_venta }} x{{ item.presentacion.unidades_base }}
+                                </option>
+                                {% endif %}
+                            </select>
+                            <div class="pres-info item-pres-info">{% if item.presentacion %}{{ item.presentacion.unidades_base }} unidades base{% endif %}</div>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label small fw-semibold">Cantidad</label>
+                            <input type="number" name="item_cantidad" class="form-control form-control-sm item-cantidad"
+                                   value="{{ item.cantidad }}" min="1" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Costo unit (S/)</label>
+                            <input type="number" name="item_precio" class="form-control form-control-sm item-precio"
+                                   value="{{ item.costo_unitario|stringformat:'.4f' }}" step="0.0001" min="0" required>
+                            <div class="pres-info item-subtotal-fila">S/ —</div>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label small fw-semibold">N° bultos</label>
+                            <input type="number" name="item_num_bultos" class="form-control form-control-sm item-num-bultos"
+                                   value="{{ item.num_bultos|default:'' }}" placeholder="1" min="1" step="1">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Flete agencia (S/)</label>
+                            <input type="number" name="item_precio_bulto" class="form-control form-control-sm item-precio-bulto"
+                                   value="{{ item.precio_por_bulto|stringformat:'.2f' }}" step="0.01" min="0">
+                            <div class="pres-info">Total o compartido</div>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label small fw-semibold">Grupo</label>
+                            <input type="text" name="item_grupo_bulto" class="form-control form-control-sm item-grupo-bulto"
+                                   value="{{ item.grupo_bulto|default:'' }}" placeholder="A,B..." maxlength="5"
+                                   title="Si comparte bulto con otro producto, pon la misma letra">
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end justify-content-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-item"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+            </div>
+            <div class="mt-2 p-2 bg-warning bg-opacity-10 rounded" id="info-grupos" style="display:none;font-size:.8rem;">
+                <i class="bi bi-info-circle text-warning me-1"></i>
+                <strong>Bultos compartidos:</strong> <span id="grupos-detalle"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen -->
+    <div class="col-md-4">
+        <div class="card p-3" id="resumen">
+            <h6 class="fw-bold mb-3">Resumen</h6>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Subtotal mercadería</span>
+                <span id="res-subtotal">S/ 0.00</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Flete proveedor</span>
+                <span id="res-flete-prov">S/ 0.00</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Flete agencia</span>
+                <span id="res-flete-ag">S/ 0.00</span>
+            </div>
+            <div class="border-top pt-2 d-flex justify-content-between fw-bold">
+                <span>Total</span>
+                <span id="res-total">S/ 0.00</span>
+            </div>
+
+            <div class="mt-3">
+                <div class="fw-semibold mb-2" style="font-size:.82rem;">Costo final por presentación</div>
+                <div id="res-detalle" style="font-size:.8rem;"></div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-primary flex-grow-1" id="btn-guardar" data-confirm="Guardar la guia de compra?"><i class="bi bi-check me-1"></i>Guardar</button>
+                <a href="{% url 'compras:lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </div>
+    </div>
+</div>
+</form>
+
+<!-- Template item -->
+<template id="item-template">
+    <div class="item-row">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-semibold">Producto</label>
+                <select name="item_producto" class="form-select form-select-sm item-producto" required>
+                    <option value="">— Seleccionar —</option>
+                    {% for p in productos %}
+                    <option value="{{ p.id }}">{{ p.nombre }}{% if p.marca %} - {{ p.marca }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Presentación</label>
+                <select name="item_presentacion" class="form-select form-select-sm item-presentacion" required disabled>
+                    <option value="">— Primero producto —</option>
+                </select>
+                <div class="pres-info item-pres-info"></div>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small fw-semibold">Cantidad</label>
+                <input type="number" name="item_cantidad" class="form-control form-control-sm item-cantidad" min="1" value="1" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Costo unit (S/)</label>
+                <input type="number" name="item_precio" class="form-control form-control-sm item-precio" step="0.0001" min="0" value="0" required>
+                <div class="pres-info item-subtotal-fila">S/ —</div>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small fw-semibold">N° bultos</label>
+                <input type="number" name="item_num_bultos" class="form-control form-control-sm item-num-bultos" placeholder="1" min="1" step="1">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Flete agencia (S/)</label>
+                <input type="number" name="item_precio_bulto" class="form-control form-control-sm item-precio-bulto" step="0.01" min="0" value="0">
+                <div class="pres-info">Total o compartido</div>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small fw-semibold">Grupo</label>
+                <input type="text" name="item_grupo_bulto" class="form-control form-control-sm item-grupo-bulto"
+                       placeholder="A,B..." maxlength="5"
+                       title="Si comparte bulto con otro producto, pon la misma letra">
+            </div>
+            <div class="col-md-1 d-flex align-items-end justify-content-end">
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remove-item"><i class="bi bi-trash"></i></button>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const URL_PRESENTACIONES = "{% url 'compras:presentaciones_ajax' %}";
+
+async function cargarPresentaciones(selectProducto) {
+    const prodId = selectProducto.value;
+    const row = selectProducto.closest('.item-row');
+    const selectPres = row.querySelector('.item-presentacion');
+    const presInfo = row.querySelector('.item-pres-info');
+
+    if (!prodId) {
+        selectPres.innerHTML = '<option value="">— Primero producto —</option>';
+        selectPres.disabled = true;
+        presInfo.textContent = '';
+        return;
+    }
+
+    selectPres.disabled = false;
+    selectPres.innerHTML = '<option value="">Cargando...</option>';
+
+    const res = await fetch(`${URL_PRESENTACIONES}?producto_id=${prodId}`);
+    const data = await res.json();
+
+    selectPres.innerHTML = '<option value="">— Seleccionar —</option>';
+    data.presentaciones.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.tipo_venta} x${p.unidades_base} und`;
+        opt.dataset.unidades = p.unidades_base;
+        selectPres.appendChild(opt);
+    });
+
+    if (data.presentaciones.length === 1) {
+        selectPres.selectedIndex = 1;
+        actualizarInfoPres(selectPres);
+    }
+}
+
+function actualizarInfoPres(selectPres) {
+    const opt = selectPres.options[selectPres.selectedIndex];
+    const info = selectPres.closest('.item-row').querySelector('.item-pres-info');
+    if (opt && opt.dataset.unidades) {
+        info.textContent = `${opt.dataset.unidades} unidades base`;
+    } else {
+        info.textContent = '';
+    }
+    calcularResumen();
+}
+
+function calcularResumen() {
+    const rows = Array.from(document.querySelectorAll('#items-container .item-row'));
+    let subtotal = 0;
+    const fleteProv = parseFloat(document.getElementById('flete_proveedor').value || 0);
+
+    const grupos = {};
+    rows.forEach((row, i) => {
+        const grupo = row.querySelector('.item-grupo-bulto')?.value.trim().toUpperCase();
+        if (grupo) {
+            if (!grupos[grupo]) grupos[grupo] = [];
+            grupos[grupo].push(i);
+        }
+    });
+
+    let fleteAg = 0;
+    const itemsCalc = [];
+
+    rows.forEach((row, i) => {
+        const cant = parseFloat(row.querySelector('.item-cantidad')?.value || 0);
+        const precio = parseFloat(row.querySelector('.item-precio')?.value || 0);
+        const numBultos = parseInt(row.querySelector('.item-num-bultos')?.value || 1) || 1;
+        const precioB = parseFloat(row.querySelector('.item-precio-bulto')?.value || 0);
+        const grupo = row.querySelector('.item-grupo-bulto')?.value.trim().toUpperCase();
+        const nombre = row.querySelector('.item-producto option:checked')?.text || '';
+        const presText = row.querySelector('.item-presentacion option:checked')?.text || '';
+
+        const subtotalItem = cant * precio;
+        subtotal += subtotalItem;
+
+        const subEl = row.querySelector('.item-subtotal-fila');
+        if (subEl) subEl.textContent = cant && precio ? `Subtotal: S/ ${subtotalItem.toFixed(2)}` : 'S/ —';
+
+        let fleteAgItem = 0;
+        if (grupo && grupos[grupo] && grupos[grupo].length > 1) {
+            fleteAgItem = precioB / grupos[grupo].length;
+        } else {
+            fleteAgItem = precioB * numBultos;
+        }
+        fleteAg += fleteAgItem;
+
+        itemsCalc.push({ nombre, presText, cant, subtotalItem, fleteAgItem });
+    });
+
+    document.getElementById('res-subtotal').textContent = 'S/ ' + subtotal.toFixed(2);
+    document.getElementById('res-flete-prov').textContent = 'S/ ' + fleteProv.toFixed(2);
+    document.getElementById('res-flete-ag').textContent = 'S/ ' + fleteAg.toFixed(2);
+    document.getElementById('res-total').textContent = 'S/ ' + (subtotal + fleteProv + fleteAg).toFixed(2);
+
+    let detalleHtml = '';
+    itemsCalc.forEach(item => {
+        if (!item.nombre || item.nombre === '— Seleccionar —' || item.cant === 0) return;
+        const fletePropItem = subtotal > 0 ? (item.subtotalItem / subtotal) * fleteProv : 0;
+        const costoTotal = item.subtotalItem + fletePropItem + item.fleteAgItem;
+        const costoUnit = item.cant > 0 ? costoTotal / item.cant : 0;
+        detalleHtml += `
+            <div class="border-bottom py-1">
+                <div class="fw-semibold text-truncate">${item.nombre}</div>
+                <div class="d-flex justify-content-between text-muted">
+                    <span>${item.presText}</span>
+                    <span class="fw-semibold text-dark">S/ ${costoUnit.toFixed(4)}/und</span>
+                </div>
+            </div>`;
+    });
+    document.getElementById('res-detalle').innerHTML = detalleHtml || '<span class="text-muted">Sin productos</span>';
+
+    const gruposKeys = Object.keys(grupos).filter(g => grupos[g].length > 1);
+    if (gruposKeys.length > 0) {
+        document.getElementById('info-grupos').style.display = 'block';
+        document.getElementById('grupos-detalle').textContent = gruposKeys.map(g =>
+            `Grupo ${g}: ${grupos[g].length} productos`
+        ).join(' | ');
+    } else {
+        document.getElementById('info-grupos').style.display = 'none';
+    }
+}
+
+document.getElementById('btn-add-item').addEventListener('click', function() {
+    const tpl = document.getElementById('item-template').content.cloneNode(true);
+    const container = document.getElementById('items-container');
+    container.appendChild(tpl);
+
+    const newRow = container.lastElementChild;
+    newRow.querySelector('.item-producto').addEventListener('change', function() {
+        cargarPresentaciones(this);
+    });
+    newRow.querySelector('.item-presentacion').addEventListener('change', function() {
+        actualizarInfoPres(this);
+    });
+    calcularResumen();
+});
+
+document.getElementById('items-container').addEventListener('click', function(e) {
+    if (e.target.closest('.btn-remove-item')) {
+        e.target.closest('.item-row').remove();
+        calcularResumen();
+    }
+});
+
+document.getElementById('form-compra').addEventListener('input', function(e) {
+    if (e.target.classList.contains('item-grupo-bulto')) {
+        actualizarVisibilidadGrupos();
+    }
+    // Si cambia el flete del primero del grupo, propagar a los demás
+    if (e.target.classList.contains('item-precio-bulto')) {
+        const row = e.target.closest('.item-row');
+        const g = row.querySelector('.item-grupo-bulto')?.value.trim().toUpperCase();
+        if (g) {
+            document.querySelectorAll('#items-container .item-grupo-bulto').forEach(input => {
+                if (input.value.trim().toUpperCase() === g && input.closest('.item-row') !== row) {
+                    input.closest('.item-row').querySelector('.item-precio-bulto').value = e.target.value;
+                }
+            });
+        }
+    }
+    calcularResumen();
+});
+
+function actualizarVisibilidadGrupos() {
+    const rows = Array.from(document.querySelectorAll('#items-container .item-row'));
+
+    // Agrupar por letra
+    const grupos = {};
+    rows.forEach(row => {
+        const g = row.querySelector('.item-grupo-bulto')?.value.trim().toUpperCase();
+        if (g) {
+            if (!grupos[g]) grupos[g] = [];
+            grupos[g].push(row);
+        }
+    });
+
+    // Resetear todos
+    rows.forEach(row => {
+        const g = row.querySelector('.item-grupo-bulto')?.value.trim();
+        const bultoCol = row.querySelector('.item-num-bultos')?.closest('.col-md-1');
+        const fleteCol = row.querySelector('.item-precio-bulto')?.closest('.col-md-2');
+        if (g) {
+            if (bultoCol) bultoCol.style.display = 'none';
+        } else {
+            if (bultoCol) bultoCol.style.display = '';
+        }
+        if (fleteCol) fleteCol.style.display = '';
+    });
+
+    // Solo el primero del grupo muestra flete, los demás lo ocultan
+    Object.values(grupos).forEach(rowsGrupo => {
+        rowsGrupo.forEach((row, i) => {
+            const fleteCol = row.querySelector('.item-precio-bulto')?.closest('.col-md-2');
+            if (i > 0 && fleteCol) {
+                fleteCol.style.display = 'none';
+                // Copiar valor del flete del primero
+                row.querySelector('.item-precio-bulto').value =
+                    rowsGrupo[0].querySelector('.item-precio-bulto').value;
+            }
+        });
+    });
+}
+
+document.getElementById('form-compra').addEventListener('submit', function() {
+    const btn = document.getElementById('btn-guardar');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+});
+
+// Inicializar eventos en items existentes (al editar)
+document.querySelectorAll('#items-container .item-row').forEach(row => {
+    const selectProd = row.querySelector('.item-producto');
+    const selectPres = row.querySelector('.item-presentacion');
+
+    selectProd?.addEventListener('change', function() {
+        cargarPresentaciones(this);
+    });
+    selectPres?.addEventListener('change', function() {
+        actualizarInfoPres(this);
+    });
+
+    // Si ya tiene presentación guardada, cargar todas las opciones del producto manteniendo selección
+    const presId = selectPres?.dataset.presId;
+    const prodId = selectProd?.value;
+    if (presId && prodId) {
+        fetch(`${URL_PRESENTACIONES}?producto_id=${prodId}`)
+            .then(r => r.json())
+            .then(data => {
+                const current = selectPres.options[0]; // mantener opción actual
+                data.presentaciones.forEach(p => {
+                    if (String(p.id) !== String(presId)) {
+                        const opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.textContent = `${p.tipo_venta} x${p.unidades_base} und`;
+                        opt.dataset.unidades = p.unidades_base;
+                        selectPres.appendChild(opt);
+                    }
+                });
+                // Asegurar que la opción correcta esté seleccionada
+                selectPres.value = presId;
+            });
+    }
+});
+
+actualizarVisibilidadGrupos();
+
+calcularResumen();
+</script>
+{% endblock %}

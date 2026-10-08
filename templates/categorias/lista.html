@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block title %}Categorías{% endblock %}
+{% block page_title %}<strong>Categorías y Subcategorías</strong>{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+    <!-- Nueva categoría -->
+    <div class="col-lg-4">
+        <div class="card p-3 mb-3">
+            <div class="fw-bold mb-3" style="font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:#6c757d;">Nueva categoría</div>
+            <form method="post" action="{% url 'crear_categoria' %}">
+                {% csrf_token %}
+                <div class="input-group">
+                    <input type="text" name="nombre" class="form-control" placeholder="Nombre de categoría" required autofocus>
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-plus"></i> Agregar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Nueva subcategoría -->
+        <div class="card p-3">
+            <div class="fw-bold mb-3" style="font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:#6c757d;">Nueva subcategoría</div>
+            <form method="post" action="{% url 'crear_subcategoria' %}">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <select name="categoria" class="form-select" required>
+                        <option value="">— Selecciona categoría —</option>
+                        {% for cat in categorias %}
+                        <option value="{{ cat.id }}">{{ cat.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="input-group">
+                    <input type="text" name="nombre" class="form-control" placeholder="Nombre de subcategoría" required>
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-plus"></i> Agregar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Lista de categorías -->
+    <div class="col-lg-8">
+        {% for cat in categorias %}
+        <div class="card p-3 mb-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">{{ cat.nombre }}</span>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'editar_categoria' cat.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                    <form method="post" action="{% url 'eliminar_categoria' cat.id %}" onsubmit="return confirm('¿Eliminar categoría «{{ cat.nombre }}»?')">
+                        {% csrf_token %}
+                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                    </form>
+                </div>
+            </div>
+
+            {% if cat.subcategorias.all %}
+            <div class="mt-2 d-flex flex-wrap gap-1">
+                {% for sub in cat.subcategorias.all %}
+                <span class="badge bg-light text-dark border d-flex align-items-center gap-1" style="font-size:.8rem;padding:.35rem .6rem;">
+                    {{ sub.nombre }}
+                    <button type="button" class="btn p-0 border-0 bg-transparent ms-1"
+                            style="font-size:.7rem;color:#6c757d;line-height:1;"
+                            data-bs-toggle="modal" data-bs-target="#modalEditarSub"
+                            data-sub-id="{{ sub.id }}" data-sub-nombre="{{ sub.nombre }}" data-sub-cat="{{ sub.categoria_id }}"
+                            title="Editar">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <form method="post" action="{% url 'eliminar_subcategoria' sub.id %}" style="display:inline;" onsubmit="return confirm('Eliminar subcategoria?')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-close" style="font-size:.55rem;" aria-label="Eliminar"></button>
+                    </form>
+                </span>
+                {% endfor %}
+            </div>
+            {% else %}
+            <small class="text-muted mt-1 d-block">Sin subcategorías</small>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-tags fs-1"></i>
+            <p class="mt-2">No hay categorías aún. Crea la primera.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditarSub" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Editar subcategoria</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="formEditarSub" action="" data-no-confirm>
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label small">Nombre</label>
+                        <input type="text" name="nombre" id="subNombre" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Categoria</label>
+                        <select name="categoria" id="subCategoria" class="form-select form-select-sm">
+                            {% for cat in categorias %}
+                            <option value="{{ cat.id }}">{{ cat.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm" data-confirm="Guardar los cambios de la subcategoria?">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('modalEditarSub').addEventListener('show.bs.modal', function (e) {
+    var btn = e.relatedTarget;
+    document.getElementById('subNombre').value = btn.dataset.subNombre;
+    document.getElementById('subCategoria').value = btn.dataset.subCat;
+    document.getElementById('formEditarSub').action = '/subcategorias/' + btn.dataset.subId + '/editar/';
+});
+</script>
+{% endblock %}

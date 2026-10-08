@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}{{ compra.numero }}{% endblock %}
+{% block page_title %}<strong>{{ compra.numero }}</strong> <span class="badge {% if compra.estado == 'confirmada' %}bg-success{% elif compra.estado == 'borrador' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-2">{{ compra.get_estado_display }}</span>{% endblock %}
+
+{% block content %}
+<div class="d-flex gap-2 mb-3">
+    {% if compra.estado == 'borrador' %}
+    <a href="{% url 'compras:editar' compra.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+    <form method="post" action="{% url 'compras:confirmar' compra.id %}" class="d-inline"
+          onsubmit="return confirm('¿Confirmar la guía? Esto actualizará el stock y no se puede deshacer.')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-circle me-1"></i>Confirmar y actualizar stock</button>
+    </form>
+    {% endif %}
+    {% if compra.estado == 'confirmada' %}
+    <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalAnular">
+        <i class="bi bi-x-circle me-1"></i>Anular
+    </button>
+    {% endif %}
+    <a href="{% url 'compras:lista' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card p-3 mb-3">
+            <div class="row g-2">
+                <div class="col-md-4"><small class="text-muted d-block">Tipo</small><strong>{{ compra.get_tipo_display }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Proveedor</small><strong>{{ compra.proveedor.nombre|default:"—" }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Almacén</small><strong>{{ compra.almacen.nombre }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Fecha</small><strong>{{ compra.fecha|date:"d/m/Y" }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Documento</small><strong>{{ compra.numero_documento|default:"—" }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Forma de pago</small><strong>{{ compra.get_forma_pago_display }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Registrado por</small><strong>{{ compra.registrado_por.get_full_name|default:compra.registrado_por.username }}</strong></div>
+                {% if compra.nota %}
+                <div class="col-12"><small class="text-muted d-block">Nota</small><span>{{ compra.nota }}</span></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Productos</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio unit.</th><th>Subtotal</th><th>Bultos</th><th>Flete agencia</th><th>Flete prov.</th><th class="text-success">Costo c/flete</th></tr></thead>
+                    <tbody>
+                    {% for row in items_con_costo %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ row.item.presentacion.producto.nombre }}{% if row.item.presentacion.producto.marca %} <span class="text-muted fw-normal">- {{ row.item.presentacion.producto.marca }}</span>{% endif %}</div>
+                            <small class="text-muted">{{ row.item.presentacion.tipo_venta }} x{{ row.item.presentacion.unidades_base }}</small>
+                        </td>
+                        <td>{{ row.item.cantidad }}</td>
+                        <td>S/ {{ row.item.costo_unitario|floatformat:2 }}</td>
+                        <td>S/ {{ row.item.subtotal_calc|floatformat:2 }}</td>
+                        <td class="text-muted">
+                            {% if row.item.grupo_bulto %}
+                                <span class="badge bg-warning text-dark">Grupo {{ row.item.grupo_bulto }}</span>
+                            {% else %}
+                                {{ row.item.num_bultos|default:"1" }}
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">{% if row.item.flete_agencia_proporcional %}S/ {{ row.item.flete_agencia_proporcional|floatformat:2 }}{% else %}—{% endif %}</td>
+                        <td class="text-muted">S/ {{ row.flete_prov_prop|floatformat:2 }}</td>
+                        <td class="fw-semibold text-success">S/ {{ row.costo_cflete|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Resumen de costos</h6>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Subtotal mercadería</span>
+                <span>S/ {{ compra.subtotal_mercaderia|floatformat:2 }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Flete proveedor</span>
+                <span>S/ {{ compra.flete_proveedor|floatformat:2 }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Flete agencia total</span>
+                <span>S/ {{ compra.flete_agencia_total|floatformat:2 }}</span>
+            </div>
+            <div class="border-top pt-2 d-flex justify-content-between fw-bold fs-5">
+                <span>Total</span>
+                <span>S/ {{ compra.total|floatformat:2 }}</span>
+            </div>
+            {% if compra.confirmado_en %}
+            <div class="mt-3 text-muted small">
+                <i class="bi bi-check-circle text-success me-1"></i>
+                Confirmado el {{ compra.confirmado_en|date:"d/m/Y H:i" }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if compra.estado == 'confirmada' %}
+<div class="modal fade" id="modalAnular" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Anular {{ compra.numero }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Esto revertirá los siguientes cambios:</p>
+                <ul class="list-unstyled">
+                {% for row in items_con_costo %}
+                <li class="mb-1"><i class="bi bi-box-seam text-warning me-2"></i>
+                    Se restarán <strong>{{ row.total_ub }}</strong> und de
+                    <strong>{{ row.item.presentacion.producto.nombre }}</strong> en {{ compra.almacen.nombre }}
+                </li>
+                {% endfor %}
+                </ul>
+                <ul class="list-unstyled mt-2">
+                    <li><i class="bi bi-arrow-counterclockwise text-warning me-2"></i>Se registrará una entrada de anulación en el kardex</li>
+                </ul>
+                <div class="alert alert-warning mt-3 mb-0 small">
+                    <i class="bi bi-info-circle me-1"></i>Los costos del proveedor <strong>no se revertirán</strong>.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" action="{% url 'compras:anular' compra.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-x-circle me-1"></i>Sí, anular</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

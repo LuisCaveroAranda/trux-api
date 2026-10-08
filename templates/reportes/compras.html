@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}Reporte de Compras{% endblock %}
+{% block page_title %}<strong>Reporte de Compras</strong>{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label small fw-semibold">Mes</label>
+            <select name="mes" class="form-select form-select-sm">
+                {% for num, nombre in meses %}
+                <option value="{{ num }}" {% if mes_sel == num %}selected{% endif %}>{{ nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small fw-semibold">Año</label>
+            <select name="anio" class="form-select form-select-sm">
+                {% for a in anios %}
+                <option value="{{ a }}" {% if anio_sel == a %}selected{% endif %}>{{ a }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold">Proveedor</label>
+            <select name="proveedor" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for p in proveedores %}
+                <option value="{{ p.id }}" {% if proveedor_sel == p.id|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-search me-1"></i>Filtrar</button>
+            <a href="{% url 'reportes:compras' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x"></i></a>
+        </div>
+    </form>
+</div>
+
+<!-- Resumen -->
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Total comprado</div>
+            <div class="fw-bold fs-4 text-primary">S/ {{ resumen.total|floatformat:2|default:"0.00" }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Subtotal mercadería</div>
+            <div class="fw-bold fs-5">S/ {{ resumen.subtotal|floatformat:2|default:"0.00" }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">Total fletes</div>
+            <div class="fw-bold fs-5">S/ {{ resumen.flete_proveedor|floatformat:2|default:"0.00" }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card p-3 text-center">
+            <div class="text-muted small mb-1">N° de guías</div>
+            <div class="fw-bold fs-4">{{ resumen.num_guias|default:0 }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <!-- Por proveedor -->
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Por proveedor</h6>
+            {% if por_proveedor %}
+            <table class="table table-sm">
+                <thead><tr><th>Proveedor</th><th class="text-center">Guías</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                {% for p in por_proveedor %}
+                <tr>
+                    <td>{{ p.proveedor__nombre|default:"Sin proveedor" }}</td>
+                    <td class="text-center text-muted">{{ p.guias }}</td>
+                    <td class="text-end fw-semibold">S/ {{ p.total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted small mb-0">Sin datos.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Por mes -->
+    <div class="col-md-6">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Últimos meses</h6>
+            {% if por_mes %}
+            <table class="table table-sm">
+                <thead><tr><th>Mes</th><th class="text-center">Guías</th><th class="text-end">Total</th></tr></thead>
+                <tbody>
+                {% for m in por_mes %}
+                <tr>
+                    <td>{{ m.mes_grupo|date:"F Y" }}</td>
+                    <td class="text-center text-muted">{{ m.guias }}</td>
+                    <td class="text-end fw-semibold">S/ {{ m.total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted small mb-0">Sin datos.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Detalle de guías -->
+<div class="card p-3">
+    <h6 class="fw-bold mb-3">Detalle de guías</h6>
+    {% if compras %}
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead><tr><th>Guía</th><th>Fecha</th><th>Proveedor</th><th>Almacén</th><th class="text-end">Subtotal</th><th class="text-end">Flete prov.</th><th class="text-end">Flete agencia</th><th class="text-end">Total</th></tr></thead>
+            <tbody>
+            {% for c in compras %}
+            <tr>
+                <td><a href="{% url 'compras:detalle' c.id %}">{{ c.numero }}</a></td>
+                <td class="text-muted small">{{ c.fecha|date:"d/m/Y" }}</td>
+                <td class="small">{{ c.proveedor.nombre|default:"—" }}</td>
+                <td class="small">{{ c.almacen.nombre }}</td>
+                <td class="text-end small">S/ {{ c.subtotal|floatformat:2 }}</td>
+                <td class="text-end small">S/ {{ c.flete_proveedor|floatformat:2 }}</td>
+                <td class="text-end small">S/ {{ c.flete_agencia_total|floatformat:2 }}</td>
+                <td class="text-end fw-semibold">S/ {{ c.total|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted small mb-0">No hay compras confirmadas para este período.</p>
+    {% endif %}
+</div>
+{% endblock %}

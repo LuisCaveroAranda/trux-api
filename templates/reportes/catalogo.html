@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% block title %}Catálogo de Precios{% endblock %}
+{% block page_title %}<strong>Catálogo de Precios</strong>{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Layout */
+.cat-wrap { max-width: 900px; margin: 0 auto; }
+
+/* Encabezado categoría */
+.cat-header {
+    background: #1a1a2e; color: #fff; font-weight: 700;
+    text-transform: uppercase; font-size: .8rem; letter-spacing: 1px;
+    padding: 6px 12px; margin-top: 12px; border-radius: 6px 6px 0 0;
+}
+
+/* Encabezado subcategoría */
+.sub-header {
+    background: #f1f3f5; border-left: 3px solid #e94560;
+    font-size: .75rem; color: #555; font-weight: 600;
+    padding: 3px 10px; text-transform: uppercase; letter-spacing: .5px;
+}
+
+/* Tarjeta producto */
+.prod-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 12px; border-bottom: 1px solid #f0f0f0;
+    background: #fff; transition: background .15s;
+}
+.prod-row:hover { background: #fafafa; }
+.prod-row:last-child { border-bottom: none; border-radius: 0 0 6px 6px; }
+.prod-block { border: 1px solid #e8e8e8; border-top: none; border-radius: 0 0 6px 6px; margin-bottom: 6px; }
+
+/* Foto */
+.prod-foto {
+    width: 56px; height: 56px; flex-shrink: 0;
+    border-radius: 8px; overflow: hidden; background: #f0f0f0;
+    display: flex; align-items: center; justify-content: center;
+}
+.prod-foto img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
+.prod-foto-empty { color: #ccc; font-size: 1.4rem; }
+
+/* Info */
+.prod-info { flex: 1; min-width: 0; }
+.prod-nombre {
+    font-size: .88rem; font-weight: 700; color: #1a1a2e;
+    text-transform: uppercase; letter-spacing: .3px; margin-bottom: 6px;
+}
+
+/* Fila presentación */
+.pres-fila {
+    display: flex; align-items: center; gap: 8px;
+    padding: 3px 0; border-top: 1px dashed #f0f0f0;
+}
+.pres-fila:first-child { border-top: none; }
+.pres-tipo {
+    font-size: .72rem; color: #888; font-weight: 600;
+    min-width: 110px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pres-cod {
+    font-size: .72rem; color: #aaa; font-family: monospace;
+    flex: 1;
+}
+.pres-precio {
+    font-size: .9rem; font-weight: 700; color: #0d6efd;
+    white-space: nowrap; min-width: 70px; text-align: right;
+}
+.pres-precio.sin-precio { color: #ccc; font-size: .78rem; font-weight: 400; }
+
+/* Print */
+@media print {
+    @page { size: A4 portrait; margin: 8mm; }
+    * { font-family: Arial, sans-serif !important; }
+    .sidebar, .topbar, .btn-imprimir, .alert, #filtro-wrap { display: none !important; }
+    .main-content { margin-left: 0 !important; padding: 0 !important; }
+    .cat-header { background: #333 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: .72rem !important; }
+    .sub-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: .68rem !important; }
+    .prod-row { padding: 5px 8px !important; }
+    .prod-foto { width: 100px !important;
+    height: 100px !important;
+    object-fit: contain !important;}
+    .prod-nombre { font-size: .75rem !important; }
+    .pres-tipo, .pres-cod { font-size: .65rem !important; }
+    .pres-precio { font-size: .78rem !important; }
+    .prod-row:hover { background: #fff !important; }
+    .pres-fila { padding: 1px 0 !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cat-wrap">
+    <div class="d-flex justify-content-between align-items-center mb-3 gap-2" id="filtro-wrap">
+        <div class="d-flex gap-1" style="max-width:360px;width:100%;">
+            <input type="text" id="filtro-catalogo" class="form-control form-control-sm" placeholder="Buscar por producto, marca, subcategoría...">
+            <button id="btn-mic" class="btn btn-sm btn-outline-secondary" title="Buscar por voz">
+                <i class="bi bi-mic"></i>
+            </button>
+        </div>
+        <button class="btn btn-primary btn-sm btn-imprimir" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i>Imprimir / Guardar PDF
+        </button>
+    </div>
+
+    {% for grupo in grupos %}
+    <div class="cat-header">{{ grupo.categoria }}</div>
+    {% for sub in grupo.subcategorias %}
+    <div class="sub-header">{{ sub.nombre }}</div>
+    <div class="prod-block">
+        {% for prod in sub.filas %}
+        <div class="prod-row">
+            <div class="prod-foto">
+                {% if prod.foto %}
+                <img src="{{ prod.foto }}" alt="{{ prod.nombre }}"
+                     onclick="document.getElementById('lightbox-img-cat').src=this.src;new bootstrap.Modal(document.getElementById('modalFotoCat')).show()">
+                {% else %}
+                <i class="bi bi-fire prod-foto-empty"></i>
+                {% endif %}
+            </div>
+            <div class="prod-info">
+                <div class="prod-nombre">{{ prod.nombre }}{% if prod.marca %} <span style="color:#e94560;font-size:.7rem;">· {{ prod.marca }}</span>{% endif %}</div>
+                {% for pres in prod.presentaciones %}
+                <div class="pres-fila">
+                    <span class="pres-tipo">{{ pres.tipo_venta }}</span>
+                    <span class="pres-cod">COD-{% if pres.precio_mayorista %}{{ pres.precio_mayorista|floatformat:0 }}{% else %}?{% endif %}-{% if pres.costo %}{{ pres.costo|floatformat:0 }}{% else %}?{% endif %}</span>
+                    <span class="pres-precio {% if not pres.precio_venta %}sin-precio{% endif %}">
+                        {% if pres.precio_venta %}S/ {{ pres.precio_venta|floatformat:2 }}{% else %}—{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    {% endfor %}
+</div>
+
+<!-- Lightbox -->
+<div class="modal fade" id="modalFotoCat" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-2">
+                <img id="lightbox-img-cat" src="" style="max-width:100%;max-height:80vh;object-fit:contain;border-radius:8px;">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const btnMic = document.getElementById('btn-mic');
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = 'es-PE';
+    rec.interimResults = false;
+    rec.onresult = function(e) {
+        const texto = e.results[0][0].transcript;
+        document.getElementById('filtro-catalogo').value = texto;
+        document.getElementById('filtro-catalogo').dispatchEvent(new Event('input'));
+        btnMic.classList.remove('btn-danger');
+        btnMic.classList.add('btn-outline-secondary');
+        btnMic.innerHTML = '<i class="bi bi-mic"></i>';
+    };
+    rec.onend = function() {
+        btnMic.classList.remove('btn-danger');
+        btnMic.classList.add('btn-outline-secondary');
+        btnMic.innerHTML = '<i class="bi bi-mic"></i>';
+    };
+    btnMic.addEventListener('click', function() {
+        btnMic.classList.remove('btn-outline-secondary');
+        btnMic.classList.add('btn-danger');
+        btnMic.innerHTML = '<i class="bi bi-mic-fill"></i>';
+        rec.start();
+    });
+} else {
+    btnMic.disabled = true;
+}
+
+document.getElementById('filtro-catalogo').addEventListener('input', function () {
+    const q = this.value.toLowerCase().trim();
+    document.querySelectorAll('.prod-row').forEach(function(row) {
+        const texto = row.textContent.toLowerCase();
+        row.style.display = (!q || texto.includes(q)) ? '' : 'none';
+    });
+    document.querySelectorAll('.sub-header').forEach(function(sub) {
+        const bloque = sub.nextElementSibling;
+        if (!bloque) return;
+        const visible = !q || Array.from(bloque.querySelectorAll('.prod-row')).some(r => r.style.display !== 'none');
+        sub.style.display = visible ? '' : 'none';
+        bloque.style.display = visible ? '' : 'none';
+    });
+    document.querySelectorAll('.cat-header').forEach(function(cat) {
+        let sig = cat.nextElementSibling;
+        let visible = false;
+        while (sig && !sig.classList.contains('cat-header')) {
+            if (sig.style.display !== 'none') visible = true;
+            sig = sig.nextElementSibling;
+        }
+        cat.style.display = (!q || visible) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

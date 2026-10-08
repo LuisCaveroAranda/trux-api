@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Transferencias{% endblock %}
+{% block page_title %}<strong>Transferencias de Stock</strong>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <form method="get" class="d-flex gap-2 align-items-center flex-wrap">
+        <input type="date" name="fecha_desde" value="{{ fecha_desde }}" class="form-control form-control-sm" style="width:150px">
+        <span class="text-muted small">hasta</span>
+        <input type="date" name="fecha_hasta" value="{{ fecha_hasta }}" class="form-control form-control-sm" style="width:150px">
+        <select name="almacen" class="form-select form-select-sm" style="width:180px">
+            <option value="">Todos los almacenes</option>
+            {% for a in almacenes %}
+            <option value="{{ a.id }}" {% if almacen_sel == a.id|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-search"></i> Filtrar</button>
+        <a href="{% url 'compras:lista_transferencias' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x"></i></a>
+    </form>
+    <a href="{% url 'compras:crear_transferencia' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus me-1"></i>Nueva transferencia</a>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>N°</th>
+                    <th>Fecha</th>
+                    <th>Origen</th>
+                    <th>Destino</th>
+                    <th>Motivo</th>
+                    <th>Estado</th>
+                    <th>Registrado por</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for t in transferencias %}
+            <tr>
+                <td><a href="{% url 'compras:detalle_transferencia' t.id %}">{{ t.numero }}</a></td>
+                <td class="text-muted small">{{ t.fecha_transferencia|date:"d/m/Y"|default:"—" }}</td>
+                <td>{{ t.almacen_origen.nombre }}</td>
+                <td>{{ t.almacen_destino.nombre }}</td>
+                <td class="text-muted small">{{ t.motivo|default:"—"|truncatechars:40 }}</td>
+                <td>
+                    <span class="badge {% if t.estado == 'confirmada' %}bg-success{% elif t.estado == 'borrador' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                        {{ t.get_estado_display }}
+                    </span>
+                </td>
+                <td class="small">{{ t.usuario.get_full_name|default:t.usuario.username }}</td>
+                <td><a href="{% url 'compras:detalle_transferencia' t.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-center text-muted py-4">No hay transferencias registradas.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

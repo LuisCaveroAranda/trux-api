@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}{{ venta.numero }}{% endblock %}
+{% block page_title %}
+<strong>{{ venta.numero }}</strong>
+<span class="badge {% if venta.estado == 'confirmada' %}bg-success{% elif venta.estado == 'borrador' %}bg-warning text-dark{% else %}bg-secondary{% endif %} ms-2">
+    {{ venta.get_estado_display }}
+</span>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex gap-2 mb-3">
+    {% if venta.estado == 'borrador' %}
+    <a href="{% url 'ventas:editar' venta.id %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil me-1"></i>Editar</a>
+    <form method="post" action="{% url 'ventas:confirmar' venta.id %}" class="d-inline" data-no-confirm
+          onsubmit="return confirm('Confirmar la venta? Esto descontara el stock.')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-circle me-1"></i>Confirmar y descontar stock</button>
+    </form>
+    {% endif %}
+    {% if venta.estado == 'confirmada' %}
+    <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#modalAnular">
+        <i class="bi bi-x-circle me-1"></i>Anular
+    </button>
+    {% endif %}
+    <a href="{% url 'ventas:lista' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card p-3 mb-3">
+            <div class="row g-2">
+                <div class="col-md-4"><small class="text-muted d-block">Tipo</small><strong>{{ venta.get_tipo_display }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Cliente</small><strong>{{ venta.get_cliente_display }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Almacén</small><strong>{{ venta.almacen.nombre }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Fecha</small><strong>{{ venta.fecha|date:"d/m/Y" }}</strong></div>
+                <div class="col-md-4"><small class="text-muted d-block">Registrado por</small><strong>{{ venta.registrado_por.get_full_name|default:venta.registrado_por.username }}</strong></div>
+                {% if venta.observaciones %}
+                <div class="col-12"><small class="text-muted d-block">Observaciones</small><span>{{ venta.observaciones }}</span></div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Productos</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">Precio unit.</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for item in venta.items.all %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ item.presentacion.producto.nombre }}</div>
+                            <small class="text-muted">{{ item.presentacion.tipo_venta }}</small>
+                        </td>
+                        <td class="text-center">{{ item.cantidad }}</td>
+                        <td class="text-end">S/ {{ item.precio_unitario|floatformat:2 }}</td>
+                        <td class="text-end">S/ {{ item.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Resumen</h6>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Subtotal</span>
+                <span>S/ {{ venta.subtotal|floatformat:2 }}</span>
+            </div>
+            {% if venta.tipo != 'nota' %}
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted small">IGV (18% inc.)</span>
+                <span class="text-muted small">S/ {{ venta.igv|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            <div class="border-top pt-2 d-flex justify-content-between fw-bold fs-5">
+                <span>Total</span>
+                <span>S/ {{ venta.total|floatformat:2 }}</span>
+            </div>
+            {% if venta.confirmado_en %}
+            <div class="mt-3 text-muted small">
+                <i class="bi bi-check-circle text-success me-1"></i>
+                Confirmada el {{ venta.confirmado_en|date:"d/m/Y H:i" }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if venta.estado == 'confirmada' %}
+<div class="modal fade" id="modalAnular" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger"><i class="bi bi-x-circle me-2"></i>Anular {{ venta.numero }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Se va a anular esta venta. Los cambios que se realizaran:</p>
+                <ul class="small">
+                    {% for item in venta.items.all %}
+                    <li><strong>{{ item.presentacion.producto.nombre }}</strong> — devuelve {{ item.cantidad }} {{ item.presentacion.tipo_venta }} al inventario</li>
+                    {% endfor %}
+                </ul>
+                <p class="text-muted small mb-0">Se registrara un movimiento <strong>venta_anulada</strong> en el kardex. La venta quedara en estado <strong>Anulada</strong>.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" action="{% url 'ventas:anular' venta.id %}" data-no-confirm>
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm">Confirmar anulacion</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

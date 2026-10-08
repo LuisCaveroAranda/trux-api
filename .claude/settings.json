@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py migrate ventas --fake-initial)",
+      "Bash(python manage.py migrate ventas --run-syncdb)",
+      "Bash(python manage.py shell -c ' *)",
+      "Bash(python manage.py makemigrations compras --name add_fecha_transferencia)",
+      "Bash(python manage.py migrate compras)",
+      "Bash(python manage.py migrate compras --fake)",
+      "Bash(pip show *)",
+      "Bash(pip install *)",
+      "Bash(python -c ' *)",
+      "Bash(python manage.py check)",
+      "Read(//c/Users/Luis Cavero/**)",
+      "Bash(python manage.py shell -c \"from compras.models import Compra; c = Compra.objects.get\\(numero='GC-00000008'\\); c.estado='borrador'; c.save\\(\\); print\\('Listo:', c.numero, c.estado\\)\")",
+      "Bash(python manage.py shell -c \"from compras.models import Compra; c = Compra.objects.get\\(id=8\\); c.estado='borrador'; c.save\\(\\); print\\('Listo: id=', c.id, c.estado\\)\")",
+      "Bash(where pg_dump)",
+      "Bash(dir \"C:\\\\Program Files\\\\PostgreSQL\\\\\" /b)",
+      "Bash(dir \"c:\\\\Users\\\\Luis Cavero\\\\Documents\\\\PROYECTO_COMERCIAL\" /b /a-d)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\Luis Cavero\\\\Documents\\\\PROYECTO_COMERCIAL\" -File -Recurse | Where-Object { $_.Name -match \"^\\(test_|debug_|temp_|importar_|backup\\)\" } | Select-Object FullName)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Luis Cavero\\Documents\\PROYECTO_COMERCIAL"
+    ]
+  }
+}

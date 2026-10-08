@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Proveedores{% endblock %}
+{% block page_title %}<strong>Proveedores</strong>{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-3">
+    <form method="get" class="d-flex gap-2">
+        <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre o RUC...">
+        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i></button>
+        <a href="{% url 'productos:crear_proveedor' %}" class="btn btn-primary ms-auto"><i class="bi bi-plus me-1"></i>Nuevo proveedor</a>
+    </form>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr><th>Nombre</th><th>RUC</th><th>Teléfono</th><th>Contacto</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+            {% for prov in proveedores %}
+            <tr>
+                <td class="fw-semibold">{{ prov.nombre }}</td>
+                <td class="text-muted">{{ prov.ruc|default:"—" }}</td>
+                <td class="text-muted">{{ prov.telefono|default:"—" }}</td>
+                <td class="text-muted">{{ prov.contacto|default:"—" }}</td>
+                <td>
+                    <span class="badge {% if prov.activo %}bg-success{% else %}bg-secondary{% endif %}">
+                        {% if prov.activo %}Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </td>
+                <td><a href="{% url 'productos:editar_proveedor' prov.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">No hay proveedores registrados.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

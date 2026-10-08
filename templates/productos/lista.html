@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Productos{% endblock %}
+{% block page_title %}<strong>Productos</strong>{% endblock %}
+
+{% block content %}
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <input type="text" name="q" value="{{ request.GET.q }}" class="form-control" placeholder="Buscar por nombre, código o alias...">
+        </div>
+        <div class="col-md-2">
+            <select name="categoria" class="form-select">
+                <option value="">Todas las categorías</option>
+                {% for cat in categorias %}
+                <option value="{{ cat.id }}" {% if request.GET.categoria == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="estado" class="form-select">
+                <option value="">Todos los estados</option>
+                <option value="activo" {% if request.GET.estado == 'activo' %}selected{% endif %}>Activo</option>
+                <option value="inactivo" {% if request.GET.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+                <option value="incompleto" {% if request.GET.estado == 'incompleto' %}selected{% endif %}>Incompleto</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i> Buscar</button>
+            <a href="{% url 'productos:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-x"></i></a>
+        </div>
+        <div class="col-auto ms-auto">
+            <a href="{% url 'productos:crear' %}" class="btn btn-primary"><i class="bi bi-plus me-1"></i>Nuevo producto</a>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Categoría</th>
+                    <th>Subcategoría</th>
+                    <th>Producto</th>
+                    <th>Marca</th>
+                    <th>Proveedor</th>
+                    <th>Estado</th>
+                    <th>Opciones</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for producto in productos %}
+            <tr>
+                <td class="small">{{ producto.categoria|default:"—" }}</td>
+                <td class="small text-muted">{{ producto.subcategoria.nombre|default:"—" }}</td>
+                <td>
+                    <div class="fw-semibold">{{ producto.nombre }}</div>
+                    <small class="text-muted">{{ producto.codigo }}</small>
+                </td>
+                <td class="small text-muted">{{ producto.marca|default:"—" }}</td>
+                <td class="small text-muted">
+                    {% with pp=producto.presentaciones.all.0.costos_proveedor.all.0 %}
+                    {{ pp.proveedor.nombre|default:"—" }}
+                    {% endwith %}
+                </td>
+                <td>
+                    <span class="badge {% if producto.estado == 'activo' %}bg-success{% elif producto.estado == 'inactivo' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+                        {{ producto.get_estado_display }}
+                    </span>
+                </td>
+                <td>
+                    <a href="{% url 'productos:detalle' producto.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>
+                    <a href="{% url 'productos:editar' producto.id %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center text-muted py-4">No se encontraron productos.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if productos.has_other_pages %}
+    <div class="card-footer d-flex justify-content-between align-items-center">
+        <small class="text-muted">{{ productos.paginator.count }} productos</small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if productos.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ productos.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">‹</a></li>
+                {% endif %}
+                <li class="page-item active"><a class="page-link" href="#">{{ productos.number }}</a></li>
+                {% if productos.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ productos.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">›</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
